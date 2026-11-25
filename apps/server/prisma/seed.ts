@@ -2,6 +2,40 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+// 五大学习阶段（step2 初始化数据）
+const stages = [
+  {
+    name: 'Elementary',
+    code: 'ELEMENTARY',
+    sortOrder: 1,
+    description: 'Basic English vocabulary for elementary learners.',
+  },
+  {
+    name: 'Junior High',
+    code: 'JUNIOR_HIGH',
+    sortOrder: 2,
+    description: 'English vocabulary for junior high school learners.',
+  },
+  {
+    name: 'Senior High',
+    code: 'SENIOR_HIGH',
+    sortOrder: 3,
+    description: 'English vocabulary for senior high school learners.',
+  },
+  {
+    name: 'CET-4',
+    code: 'CET4',
+    sortOrder: 4,
+    description: 'College English Test Band 4 vocabulary.',
+  },
+  {
+    name: 'IELTS',
+    code: 'IELTS',
+    sortOrder: 5,
+    description: 'Vocabulary for IELTS preparation.',
+  },
+]
+
 const words = [
   {
     word: 'vocabulary',
@@ -24,6 +58,21 @@ const words = [
 ]
 
 async function main() {
+  // 初始化五大阶段：upsert 保证重复执行不产生重复数据
+  for (const stage of stages) {
+    await prisma.stage.upsert({
+      where: { code: stage.code },
+      update: {
+        name: stage.name,
+        sortOrder: stage.sortOrder,
+        description: stage.description,
+        isActive: true,
+      },
+      create: { ...stage, isActive: true },
+    })
+  }
+  console.log('Five learning stages initialized successfully.')
+
   for (const item of words) {
     await prisma.word.upsert({
       where: { word: item.word },
