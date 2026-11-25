@@ -52,8 +52,7 @@ model LearningRecord {
 }
 
 // ===== 第一批：课程管理（Stage / Unit / Level）=====
-// 说明：StageWord / UserStage / LevelWord / UserLevel 属于后续批次，
-// 这些关联字段会在对应模型创建后再补上，避免引用不存在的模型导致校验失败。
+// 说明：UserStage / UserLevel 属于后续批次，关联字段待对应模型创建后再补。
 
 model Stage {
   id          String   @id @default(uuid()) @db.Uuid
@@ -65,7 +64,8 @@ model Stage {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  units Unit[]
+  units      Unit[]
+  stageWords StageWord[]
 
   @@index([sortOrder])
 }
@@ -88,7 +88,9 @@ model WordSense {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  word       Word        @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  levelWords LevelWord[]
+  stageWords StageWord[]
 
   @@index([wordId])
   @@index([wordId, sortOrder])
@@ -128,8 +130,44 @@ model Level {
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  unit       Unit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  levelWords LevelWord[]
 
   @@unique([unitId, sortOrder])
   @@index([unitId])
+}
+
+// ===== 第三批：课程与词汇关联（LevelWord / StageWord）=====
+// Level.id / Stage.id / WordSense.id 均为 @db.Uuid，故外键也用 @db.Uuid。
+// 唯一约束避免同一关卡/阶段重复关联同一个词义。
+
+model LevelWord {
+  id          String   @id @default(uuid()) @db.Uuid
+  levelId     String   @db.Uuid
+  wordSenseId String   @db.Uuid
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  level     Level     @relation(fields: [levelId], references: [id], onDelete: Cascade)
+  wordSense WordSense @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+
+  @@unique([levelId, wordSenseId])
+  @@index([levelId])
+  @@index([wordSenseId])
+}
+
+model StageWord {
+  id          String   @id @default(uuid()) @db.Uuid
+  stageId     String   @db.Uuid
+  wordSenseId String   @db.Uuid
+  isRequired  Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  stage     Stage     @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  wordSense WordSense @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+
+  @@unique([stageId, wordSenseId])
+  @@index([stageId])
+  @@index([wordSenseId])
 }
