@@ -1,0 +1,50 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Word {
+  id        String   @id @default(uuid())
+  word      String   @unique
+  phonetic  String?
+  meaning   String
+  example   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learningRecords LearningRecord[]
+
+  @@index([createdAt])
+}
+
+model User {
+  id        String   @id @default(uuid())
+  openid    String?  @unique
+  nickname  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  learningRecords LearningRecord[]
+}
+
+model LearningRecord {
+  id             String    @id @default(uuid())
+  userId         String
+  wordId         String
+  familiarity    Int       @default(0)
+  reviewCount    Int       @default(0)
+  lastReviewedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, wordId])
+  @@index([userId])
+  @@index([wordId])
+}

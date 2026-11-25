@@ -1,0 +1,23 @@
+{
+  "name": "englis-vocabulary",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@12.23.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "setup": "pnpm install && pnpm db:generate",
+    "dev": "pnpm -r --parallel --filter @englis-vocabulary/server --filter @englis-vocabulary/miniapp run dev",
+    "dev:server": "pnpm --filter @englis-vocabulary/server dev",
+    "dev:miniapp": "pnpm --filter @englis-vocabulary/miniapp dev",
+    "build": "pnpm --filter @englis-vocabulary/server build && pnpm --filter @englis-vocabulary/miniapp build",
+    "typecheck": "pnpm --filter @englis-vocabulary/server typecheck && pnpm --filter @englis-vocabulary/miniapp type-check",
+    "db:up": "docker compose -f database/docker-compose.yml up -d",
+    "db:down": "docker compose -f database/docker-compose.yml down",
+    "db:generate": "pnpm --filter @englis-vocabulary/server prisma:generate",
+    "db:migrate": "pnpm --filter @englis-vocabulary/server prisma:migrate",
+    "db:deploy": "pnpm --filter @englis-vocabulary/server prisma:deploy",
+    "db:seed": "pnpm --filter @englis-vocabulary/server prisma:seed"
+  }
+}
