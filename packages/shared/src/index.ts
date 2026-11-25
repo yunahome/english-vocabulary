@@ -75,7 +75,17 @@ export interface WordWithSensesDto {
   id: string
   word: string
   phonetic: string | null
+  imageUrl: string | null
+  pronunciationUrl: string | null
   senses: WordSenseDto[]
+}
+
+/** 关卡学习项：词义 + 所属单词的完整信息（供新词学习/复习页展示） */
+export interface LevelLearningItemDto extends WordSenseDto {
+  word: string
+  phonetic: string | null
+  imageUrl: string | null
+  pronunciationUrl: string | null
 }
 
 // ===== 用户 =====

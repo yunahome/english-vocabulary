@@ -57,6 +57,61 @@ const words = [
   },
 ]
 
+// 第一批正式课程词汇：Elementary → Unit 1 → Level 1
+// 数据字段对应 UI 图：单词图片、音标、发音、词性、中文释义、英文释义、例句+翻译
+const lessonWords = [
+  {
+    word: 'apple',
+    phonetic: '/ˈæp.əl/',
+    meaning: '苹果',
+    partOfSpeech: 'noun',
+    englishDefinition: 'A round fruit with red, green or yellow skin.',
+    example: 'I eat an apple every day.',
+    exampleTranslation: '我每天吃一个苹果。',
+    emoji: '🍎',
+  },
+  {
+    word: 'banana',
+    phonetic: '/bəˈnɑː.nə/',
+    meaning: '香蕉',
+    partOfSpeech: 'noun',
+    englishDefinition: 'A long yellow fruit with a soft sweet inside.',
+    example: 'She likes bananas for breakfast.',
+    exampleTranslation: '她早餐喜欢吃香蕉。',
+    emoji: '🍌',
+  },
+  {
+    word: 'cat',
+    phonetic: '/kæt/',
+    meaning: '猫',
+    partOfSpeech: 'noun',
+    englishDefinition: 'A small animal with soft fur that says meow.',
+    example: 'The cat is sleeping on the sofa.',
+    exampleTranslation: '猫正在沙发上睡觉。',
+    emoji: '🐱',
+  },
+  {
+    word: 'dog',
+    phonetic: '/dɒɡ/',
+    meaning: '狗',
+    partOfSpeech: 'noun',
+    englishDefinition: 'A common animal that is kept as a pet.',
+    example: 'The dog runs in the park.',
+    exampleTranslation: '狗在公园里跑。',
+    emoji: '🐶',
+  },
+  {
+    word: 'book',
+    phonetic: '/bʊk/',
+    meaning: '书',
+    partOfSpeech: 'noun',
+    englishDefinition: 'A set of printed pages that you read.',
+    example: 'I read a book before bed.',
+    exampleTranslation: '我睡前读一本书。',
+    emoji: '📖',
+  },
+]
+
 async function main() {
   // 初始化五大阶段：upsert 保证重复执行不产生重复数据
   for (const stage of stages) {
@@ -81,6 +136,89 @@ async function main() {
     })
   }
   console.log(`Seeded ${words.length} words.`)
+
+  // 第一批课程：Elementary → Unit 1 → Level 1
+  const elementary = await prisma.stage.findUniqueOrThrow({
+    where: { code: 'ELEMENTARY' },
+  })
+
+  const unit = await prisma.unit.upsert({
+    where: { stageId_sortOrder: { stageId: elementary.id, sortOrder: 1 } },
+    create: { stageId: elementary.id, name: 'Unit 1', sortOrder: 1 },
+    update: { name: 'Unit 1' },
+  })
+  const level = await prisma.level.upsert({
+    where: { unitId_sortOrder: { unitId: unit.id, sortOrder: 1 } },
+    create: { unitId: unit.id, name: 'Level 1', sortOrder: 1, isActive: true },
+    update: { isActive: true },
+  })
+  console.log('Course structure ready: Elementary / Unit 1 / Level 1.')
+
+  // 录入正式课程词汇，并创建完整 WordSense（含词性、英文释义、例句翻译）
+  const lessonSenseIds: string[] = []
+  for (const [index, item] of lessonWords.entries()) {
+    const word = await prisma.word.upsert({
+      where: { word: item.word },
+      create: {
+        word: item.word,
+        lemma: item.word,
+        phonetic: item.phonetic,
+        meaning: item.meaning,
+        example: item.example,
+        imageUrl: item.emoji,
+      },
+      update: {
+        lemma: item.word,
+        phonetic: item.phonetic,
+        meaning: item.meaning,
+        example: item.example,
+        imageUrl: item.emoji,
+      },
+    })
+
+    // 用 wordId + definition 判重，保证幂等
+    let sense = await prisma.wordSense.findFirst({
+      where: { wordId: word.id, definition: item.meaning },
+    })
+    if (!sense) {
+      sense = await prisma.wordSense.create({
+        data: {
+          wordId: word.id,
+          partOfSpeech: item.partOfSpeech,
+          definition: item.meaning,
+          englishDefinition: item.englishDefinition,
+          example: item.example,
+          exampleTranslation: item.exampleTranslation,
+          sortOrder: 1,
+        },
+      })
+    }
+    lessonSenseIds.push(sense.id)
+
+    // 关联到关卡（学习顺序即录入顺序）
+    await prisma.levelWord.upsert({
+      where: {
+        levelId_wordSenseId: { levelId: level.id, wordSenseId: sense.id },
+      },
+      create: { levelId: level.id, wordSenseId: sense.id, sortOrder: index + 1 },
+      update: { sortOrder: index + 1 },
+    })
+
+    // 标记为 Elementary 阶段必学
+    await prisma.stageWord.upsert({
+      where: {
+        stageId_wordSenseId: { stageId: elementary.id, wordSenseId: sense.id },
+      },
+      create: {
+        stageId: elementary.id,
+        wordSenseId: sense.id,
+        isRequired: true,
+        sortOrder: index + 1,
+      },
+      update: { isRequired: true },
+    })
+  }
+  console.log(`Seeded ${lessonWords.length} lesson words into Level 1 and StageWord.`)
 
   // 数据迁移：为旧 Word（含新 seed 的单词）回填 WordSense。
   // 旧 Word 的 meaning / example 转移到词义表，保留原字段不删以兼容现有 API。

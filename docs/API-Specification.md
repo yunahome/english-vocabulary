@@ -60,10 +60,10 @@ curl -X POST http://localhost:3000/api/users \
 课程树：Stage → Unit → Level（5 个阶段，按 sortOrder 排序）。
 
 ### GET /api/catalog/words
-全部单词，每词带 `senses` 词义数组。
+全部单词，每词带 `senses` 词义数组，以及 `imageUrl`（图片占位）、`pronunciationUrl`。
 
 ### GET /api/catalog/levels/:levelId/words
-某关卡的词义列表（按学习顺序）。
+某关卡的学习项列表（按学习顺序）。每项 = 词义（definition / partOfSpeech / englishDefinition / example / exampleTranslation）+ 所属单词信息（word / phonetic / imageUrl / pronunciationUrl），可直接驱动 UI 图里的 New Word 和 Writing 页面。
 
 ### GET /api/catalog/stages/:stageId/words
 某阶段的必学词义（isRequired=true）。

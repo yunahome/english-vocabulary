@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
 import type {
   LevelDto,
+  LevelLearningItemDto,
   StageDto,
   UnitDto,
   WordSenseDto,
@@ -57,14 +58,23 @@ export class CatalogService {
     }))
   }
 
-  /** 某个关卡的词义列表（按学习顺序） */
-  async getLevelWords(levelId: string): Promise<WordSenseDto[]> {
+  /** 某个关卡的学习项（按学习顺序）：词义 + 单词图片/音标/发音 */
+  async getLevelWords(levelId: string): Promise<LevelLearningItemDto[]> {
     const links = await this.prisma.levelWord.findMany({
       where: { levelId },
       orderBy: { sortOrder: 'asc' },
-      include: { wordSense: true },
+      include: { wordSense: { include: { word: true } } },
     })
-    return links.map((link) => this.toSenseDto(link.wordSense))
+    return links.map((link) => {
+      const sense = link.wordSense
+      return {
+        ...this.toSenseDto(sense),
+        word: sense.word.word,
+        phonetic: sense.word.phonetic,
+        imageUrl: sense.word.imageUrl,
+        pronunciationUrl: sense.word.pronunciationUrl,
+      }
+    })
   }
 
   /** 某个阶段的必学词义 */
@@ -87,6 +97,8 @@ export class CatalogService {
       id: word.id,
       word: word.word,
       phonetic: word.phonetic,
+      imageUrl: word.imageUrl,
+      pronunciationUrl: word.pronunciationUrl,
       senses: word.senses.map((sense) => this.toSenseDto(sense)),
     }))
   }
