@@ -12,7 +12,7 @@ onLaunch(() => {
 
 <style>
 page {
-  background: #f6f7fb;
+  background: #fffaf0;
   color: #1f2329;
   font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Helvetica,
     'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;

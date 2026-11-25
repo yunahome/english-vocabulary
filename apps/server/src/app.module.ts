@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { HealthModule } from './health/health.module'
+import { HomeModule } from './home/home.module'
 import { PrismaModule } from './prisma.module'
 import { WordsModule } from './words/words.module'
 import { CatalogModule } from './catalog/catalog.module'
@@ -16,6 +17,7 @@ import { UsersModule } from './users/users.module'
     }),
     PrismaModule,
     HealthModule,
+    HomeModule,
     WordsModule,
     CatalogModule,
     LearningModule,

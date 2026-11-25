@@ -1,16 +1,81 @@
 {
   "pages": [
     {
+      "path": "pages/home/index",
+      "style": {
+        "navigationBarTitleText": "Home",
+        "navigationBarBackgroundColor": "#fffaf0",
+        "navigationBarTextStyle": "black",
+        "backgroundColor": "#fffaf0"
+      }
+    },
+    {
+      "path": "pages/vocabulary/index",
+      "style": {
+        "navigationBarTitleText": "Vocabulary",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/progress/index",
+      "style": {
+        "navigationBarTitleText": "Progress",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationBarTitleText": "Profile",
+        "navigationBarBackgroundColor": "#ffffff",
+        "navigationBarTextStyle": "black"
+      }
+    },
+    {
       "path": "pages/index/index",
       "style": {
         "navigationBarTitleText": "我的单词本"
       }
     }
   ],
+  "tabBar": {
+    "color": "#9a9a9a",
+    "selectedColor": "#4caf7d",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/home/index",
+        "text": "Home",
+        "iconPath": "static/tab-home.png",
+        "selectedIconPath": "static/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/vocabulary/index",
+        "text": "Vocabulary",
+        "iconPath": "static/tab-vocabulary.png",
+        "selectedIconPath": "static/tab-vocabulary-active.png"
+      },
+      {
+        "pagePath": "pages/progress/index",
+        "text": "Progress",
+        "iconPath": "static/tab-progress.png",
+        "selectedIconPath": "static/tab-progress-active.png"
+      },
+      {
+        "pagePath": "pages/profile/index",
+        "text": "Profile",
+        "iconPath": "static/tab-profile.png",
+        "selectedIconPath": "static/tab-profile-active.png"
+      }
+    ]
+  },
   "globalStyle": {
     "navigationBarBackgroundColor": "#ffffff",
     "navigationBarTextStyle": "black",
-    "backgroundColor": "#f6f7fb",
+    "backgroundColor": "#fffaf0",
     "enablePullDownRefresh": false
   }
 }

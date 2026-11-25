@@ -181,3 +181,24 @@ export interface DailyTasksResultDto {
   learning: DailyLearningDto
   tasks: DailyTaskDto[]
 }
+
+// ===== 首页聚合 =====
+export interface HomeSummaryDto {
+  greeting: string
+  subtitle: string
+  dayStreak: number
+  masteredCount: number
+  currentStage: {
+    id: string
+    name: string
+    stageNumber: number
+    totalStages: number
+    learnedWords: number
+    totalWords: number
+    progressPercent: number
+  } | null
+  reviewDueCount: number
+  newWordsLocked: boolean
+  newWordsMinimum: number
+  date: string
+}
