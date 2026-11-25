@@ -33,6 +33,11 @@ model User {
   learningRecords LearningRecord[]
   userWords       UserWord[]
   writingRecords  WritingRecord[]
+  userStages      UserStage[]
+  userLevels      UserLevel[]
+  dailyLearnings  DailyLearning[]
+  dailyTasks      DailyTask[]
+  reviewRecords   ReviewRecord[]
 }
 
 model LearningRecord {
@@ -54,7 +59,6 @@ model LearningRecord {
 }
 
 // ===== 第一批：课程管理（Stage / Unit / Level）=====
-// 说明：UserStage / UserLevel 属于后续批次，关联字段待对应模型创建后再补。
 
 model Stage {
   id          String   @id @default(uuid()) @db.Uuid
@@ -68,6 +72,7 @@ model Stage {
 
   units      Unit[]
   stageWords StageWord[]
+  userStages UserStage[]
 
   @@index([sortOrder])
 }
@@ -95,6 +100,8 @@ model WordSense {
   stageWords     StageWord[]
   userWords      UserWord[]
   writingRecords WritingRecord[]
+  dailyTasks     DailyTask[]
+  reviewRecords  ReviewRecord[]
 
   @@index([wordId])
   @@index([wordId, sortOrder])
@@ -136,6 +143,7 @@ model Level {
 
   unit       Unit        @relation(fields: [unitId], references: [id], onDelete: Restrict)
   levelWords LevelWord[]
+  userLevels UserLevel[]
 
   @@unique([unitId, sortOrder])
   @@index([unitId])
@@ -225,4 +233,103 @@ model WritingRecord {
   @@index([userId])
   @@index([wordSenseId])
   @@index([testedAt])
+}
+
+// ===== 第五批：用户进度与每日任务 =====
+// User.id 是 text → userId 不加 @db.Uuid；
+// Stage.id / Level.id / WordSense.id 是 @db.Uuid → 对应外键用 @db.Uuid。
+// learningDate 用 @db.Date（只存日期，不含时间）。
+
+model UserStage {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String
+  stageId     String    @db.Uuid
+  status      String    @default("locked")
+  unlockedAt  DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stage Stage @relation(fields: [stageId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stageId])
+  @@index([userId])
+  @@index([stageId])
+}
+
+model UserLevel {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String
+  levelId     String    @db.Uuid
+  status      String    @default("locked")
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  level Level @relation(fields: [levelId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, levelId])
+  @@index([userId])
+  @@index([levelId])
+}
+
+model DailyLearning {
+  id                      String   @id @default(uuid()) @db.Uuid
+  userId                  String
+  learningDate            DateTime @db.Date
+  newWordCount            Int      @default(0)
+  reviewWordCount         Int      @default(0)
+  masteredCount           Int      @default(0)
+  isDailyMinimumCompleted Boolean  @default(false)
+  sessionStatus           String   @default("in_progress")
+  lastLearningPosition    String?
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, learningDate])
+  @@index([userId])
+  @@index([learningDate])
+}
+
+model DailyTask {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String
+  learningDate DateTime  @db.Date
+  wordSenseId  String    @db.Uuid
+  taskType     String
+  taskStatus   String    @default("pending")
+  sequence     Int       @default(0)
+  completedAt  DateTime?
+  retryCount   Int       @default(0)
+  createdAt    DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordSense WordSense @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, learningDate, wordSenseId, taskType])
+  @@index([userId])
+  @@index([learningDate])
+  @@index([wordSenseId])
+}
+
+model ReviewRecord {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String
+  wordSenseId    String    @db.Uuid
+  scheduledAt    DateTime
+  completedAt    DateTime?
+  result         String?
+  sequenceNumber Int       @default(0)
+  createdAt      DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordSense WordSense @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([wordSenseId])
+  @@index([scheduledAt])
 }
