@@ -19,3 +19,4 @@ apps/miniapp/unpackage/
 apps/miniapp/.hbuilderx/
 apps/server/dist/
 database/pgdata/
+database/.pglite/

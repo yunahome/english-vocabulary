@@ -42,10 +42,30 @@ englis-vocabulary/
 
 - Node.js >= 20（推荐 22）
 - pnpm 12（`corepack enable pnpm`）
-- Docker（用于本地 PostgreSQL）
+- Docker（可选，用于容器版 PostgreSQL；没有 Docker 可以用内置 PGlite）
 - 微信开发者工具（用于预览小程序）
 
-## 快速开始
+## 无 Docker 开发（推荐先用这个）
+
+本机不需要安装 Docker 或 psql。PGlite 会在 `database/.pglite/` 保存数据，并通过 PostgreSQL 协议暴露 5432 端口，Prisma 无需改代码。
+
+打开两个终端：
+
+```bash
+# 终端 1：首次启动（自动建表 + 写入示例单词）
+pnpm db:local:init
+
+# 终端 2：启动前后端
+pnpm dev
+```
+
+以后已有数据时只需要 `pnpm db:local`。
+
+如果想用内存数据库（退出后数据清空），设置 `PGLITE_DATA_DIR=memory://` 再运行 `pnpm db:local`。
+
+`.env` 中 `DATABASE_URL` 的 `pgbouncer=true&connection_limit=1` 是为了兼容 PGlite 的连接模型，对真实 PostgreSQL 也没有副作用。
+
+## 快速开始（有 Docker）
 
 ```bash
 cd /Users/yktc/Documents/englis-vocabulary

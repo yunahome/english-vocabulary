@@ -15,9 +15,15 @@
     "typecheck": "pnpm --filter @englis-vocabulary/server typecheck && pnpm --filter @englis-vocabulary/miniapp type-check",
     "db:up": "docker compose -f database/docker-compose.yml up -d",
     "db:down": "docker compose -f database/docker-compose.yml down",
+    "db:local": "node --env-file-if-exists=.env database/pglite-server.mjs",
+    "db:local:init": "node --env-file-if-exists=.env database/pglite-server.mjs --init --seed",
     "db:generate": "pnpm --filter @englis-vocabulary/server prisma:generate",
     "db:migrate": "pnpm --filter @englis-vocabulary/server prisma:migrate",
     "db:deploy": "pnpm --filter @englis-vocabulary/server prisma:deploy",
     "db:seed": "pnpm --filter @englis-vocabulary/server prisma:seed"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.6.0",
+    "@electric-sql/pglite-socket": "0.3.0"
   }
 }
