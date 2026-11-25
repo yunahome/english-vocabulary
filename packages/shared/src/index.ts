@@ -31,3 +31,143 @@ export interface HealthDto {
   status: 'ok'
   timestamp: string
 }
+
+// ===== 课程 =====
+export interface StageDto {
+  id: string
+  name: string
+  code: string
+  sortOrder: number
+  description: string | null
+  isActive: boolean
+  units?: UnitDto[]
+}
+
+export interface UnitDto {
+  id: string
+  stageId: string
+  name: string
+  sortOrder: number
+  levels?: LevelDto[]
+}
+
+export interface LevelDto {
+  id: string
+  unitId: string
+  name: string
+  sortOrder: number
+  isActive: boolean
+}
+
+// ===== 词汇 =====
+export interface WordSenseDto {
+  id: string
+  wordId: string
+  partOfSpeech: string
+  definition: string
+  englishDefinition: string | null
+  example: string | null
+  exampleTranslation: string | null
+  sortOrder: number
+}
+
+export interface WordWithSensesDto {
+  id: string
+  word: string
+  phonetic: string | null
+  senses: WordSenseDto[]
+}
+
+// ===== 用户 =====
+export interface UserDto {
+  id: string
+  openid: string | null
+  nickname: string | null
+  createdAt: string
+}
+
+export interface CreateUserInput {
+  openid?: string
+  nickname?: string
+}
+
+// ===== 学习提交 =====
+export interface SubmitWritingInput {
+  userId: string
+  wordSenseId: string
+  inputAnswer: string
+  isCorrect: boolean
+  isIndependent?: boolean
+  attemptType?: 'scheduled' | 'immediate_retry'
+  retryOfRecordId?: string
+}
+
+export interface WritingResultDto {
+  recordId: string
+  isCorrect: boolean
+  isIndependent: boolean
+  isValidMasteryAttempt: boolean
+  correctStreak: number
+  status: 'not_started' | 'learning' | 'mastered'
+  mastered: boolean
+  nextReviewAt: string | null
+  reason: string
+}
+
+// ===== 掌握状态 =====
+export interface UserWordDto {
+  id: string
+  userId: string
+  wordSenseId: string
+  status: string
+  correctStreak: number
+  firstLearnedAt: string | null
+  lastTestedAt: string | null
+  lastCorrectAt: string | null
+  nextReviewAt: string | null
+  masteredAt: string | null
+  forgottenAt: string | null
+}
+
+// ===== 进度与每日任务 =====
+export interface UserStageDto {
+  id: string
+  stageId: string
+  status: string
+  unlockedAt: string | null
+  completedAt: string | null
+}
+
+export interface UserLevelDto {
+  id: string
+  levelId: string
+  status: string
+  completedAt: string | null
+}
+
+export interface DailyLearningDto {
+  id: string
+  learningDate: string
+  newWordCount: number
+  reviewWordCount: number
+  masteredCount: number
+  isDailyMinimumCompleted: boolean
+  sessionStatus: string
+  lastLearningPosition: string | null
+}
+
+export interface DailyTaskDto {
+  id: string
+  wordSenseId: string
+  taskType: string
+  taskStatus: string
+  sequence: number
+  retryCount: number
+  completedAt: string | null
+}
+
+export interface DailyTasksResultDto {
+  date: string
+  learning: DailyLearningDto
+  tasks: DailyTaskDto[]
+}
