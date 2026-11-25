@@ -6,7 +6,22 @@
 - `docker-compose.yml`：本地 PostgreSQL 16 容器配置。
 - Prisma Schema 与 Migration 位于 `apps/server/prisma/`，由后端统一维护。
 
-### 无 Docker（推荐）
+### 使用 Docker（推荐）
+
+```bash
+# 在仓库根目录
+cp .env.example .env
+pnpm db:up
+pnpm db:migrate
+pnpm db:seed
+```
+
+连接串默认写在根目录 `.env` 的 `DATABASE_URL`。
+数据保存在 Docker 卷 `postgres_data` 中；`pnpm db:down` 只停容器、不删数据。
+
+### 无 Docker（备选）
+
+先执行 `pnpm db:down` 释放 5432 端口，然后：
 
 ```bash
 # 仓库根目录，终端 1（首次）
@@ -20,15 +35,3 @@ pnpm dev
 
 PGlite 数据保存在 `database/.pglite/`，已加入 `.gitignore`。
 设置 `PGLITE_DATA_DIR=memory://` 可切换为内存模式。
-
-### 使用 Docker
-
-启动数据库：
-
-```bash
-# 在仓库根目录
-cp .env.example .env
-pnpm db:up
-```
-
-连接串默认写在根目录 `.env` 的 `DATABASE_URL`。

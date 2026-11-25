@@ -42,12 +42,44 @@ englis-vocabulary/
 
 - Node.js >= 20（推荐 22）
 - pnpm 12（`corepack enable pnpm`）
-- Docker（可选，用于容器版 PostgreSQL；没有 Docker 可以用内置 PGlite）
+- Docker Desktop（本机已安装，推荐用于运行 PostgreSQL）
 - 微信开发者工具（用于预览小程序）
 
-## 无 Docker 开发（推荐先用这个）
+不需要单独安装 `psql` 或原生 PostgreSQL。
 
-本机不需要安装 Docker 或 psql。PGlite 会在 `database/.pglite/` 保存数据，并通过 PostgreSQL 协议暴露 5432 端口，Prisma 无需改代码。
+## 快速开始（Docker，本机推荐）
+
+```bash
+cd /Users/yktc/Documents/englis-vocabulary
+
+# 1. 安装依赖并生成 Prisma Client
+pnpm setup
+
+# 2. 准备环境变量
+cp .env.example .env
+
+# 3. 启动 PostgreSQL 容器（postgres:16-alpine）
+pnpm db:up
+
+# 4. 初始化数据库结构 + 写入示例单词
+pnpm db:migrate
+pnpm db:seed
+
+# 5. 同时启动后端与小程序
+pnpm dev
+```
+
+后端地址：`http://localhost:3000/api`
+小程序工程输出目录：`apps/miniapp/dist/build/mp-weixin`
+
+> 如果终端提示 `docker: command not found`：Docker Desktop 已把 CLI 写入
+> `~/.zprofile`，但已经打开的终端不会自动生效。**新开一个终端窗口**，或执行
+> `source ~/.zprofile`，再用 `docker --version` 验证。同时保持 Docker Desktop
+> 处于运行状态（菜单栏有鲸鱼图标）。
+
+## 无 Docker 开发（备选）
+
+PGlite 会在 `database/.pglite/` 保存数据，并通过 PostgreSQL 协议暴露 5432 端口，Prisma 无需改代码。注意先执行 `pnpm db:down` 停掉 Docker 容器，避免占用 5432 端口。
 
 打开两个终端：
 
@@ -64,31 +96,6 @@ pnpm dev
 如果想用内存数据库（退出后数据清空），设置 `PGLITE_DATA_DIR=memory://` 再运行 `pnpm db:local`。
 
 `.env` 中 `DATABASE_URL` 的 `pgbouncer=true&connection_limit=1` 是为了兼容 PGlite 的连接模型，对真实 PostgreSQL 也没有副作用。
-
-## 快速开始（有 Docker）
-
-```bash
-cd /Users/yktc/Documents/englis-vocabulary
-
-# 1. 安装依赖并生成 Prisma Client
-pnpm setup
-
-# 2. 准备环境变量
-cp .env.example .env
-
-# 3. 启动 PostgreSQL（需要 Docker）
-pnpm db:up
-
-# 4. 初始化数据库结构
-pnpm db:migrate
-pnpm db:seed
-
-# 5. 同时启动后端与小程序
-pnpm dev
-```
-
-后端地址：`http://localhost:3000/api`
-小程序工程输出目录：`apps/miniapp/dist/build/mp-weixin`
 
 ## 单独启动
 
