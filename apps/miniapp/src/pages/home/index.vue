@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import type { HomeSummaryDto } from '@englis-vocabulary/shared'
 import { getHomeSummary } from '@/api/home'
 import { useUserStore } from '@/stores/user'
+import { useLearningStore } from '@/stores/learning'
 
 const userStore = useUserStore()
+const learningStore = useLearningStore()
 const summary = ref<HomeSummaryDto | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -22,10 +25,14 @@ async function load() {
   }
 }
 
-onMounted(load)
+// tabBar 页面切回来时重新拉数据，保证学完后统计立刻更新
+onShow(load)
 
-function startReview() {
-  uni.showToast({ title: 'Review 页面开发中', icon: 'none' })
+async function startReview() {
+  const userId = await userStore.ensureUser()
+  learningStore.reset()
+  learningStore.userId = userId
+  uni.navigateTo({ url: '/pages/review/index' })
 }
 </script>
 
@@ -145,8 +152,11 @@ function startReview() {
 
       <!-- 底部草地装饰（对齐 UI 图） -->
       <view class="grass">
+        <view class="hill hill-far-left" />
         <view class="hill hill-left" />
+        <view class="hill hill-mid" />
         <view class="hill hill-right" />
+        <view class="hill hill-far-right" />
       </view>
     </block>
   </view>
@@ -175,7 +185,7 @@ function startReview() {
 .header-left { display: flex; align-items: center; min-width: 0; flex: 1; }
 .sun { font-size: 52rpx; margin-right: 12rpx; line-height: 1; }
 .header-text { display: flex; flex-direction: column; min-width: 0; }
-.greeting { font-size: 34rpx; font-weight: 700; color: #1f2d24; line-height: 1.15; }
+.greeting { font-size: 36rpx; font-weight: 700; color: #1f2d24; line-height: 1.15; }
 .subtitle { font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
 .avatar {
   width: 72rpx; height: 72rpx; border-radius: 50%;
@@ -208,7 +218,7 @@ function startReview() {
 .stat-icon { font-size: 40rpx; line-height: 1; flex-shrink: 0; }
 .stat-meta { display: flex; flex-direction: column; min-width: 0; }
 .stat-label { font-size: 20rpx; color: #94a096; overflow: hidden; text-overflow: ellipsis; }
-.stat-value { font-size: 30rpx; font-weight: 700; color: #1f2d24; margin-top: 2rpx; }
+.stat-value { font-size: 40rpx; font-weight: 800; color: #1f2d24; margin-top: 4rpx; }
 
 /* 通用标题 */
 .section-title {
@@ -233,7 +243,7 @@ function startReview() {
 .stage-content { flex: 1; }
 .stage-row { display: flex; justify-content: space-between; align-items: baseline; }
 .stage-name { font-size: 26rpx; font-weight: 600; color: #1f2d24; }
-.stage-count { font-size: 17rpx; color: #6b7a70; overflow: hidden; text-overflow: ellipsis; }
+.stage-count { font-size: 22rpx; color: #6b7a70; overflow: hidden; text-overflow: ellipsis; }
 .stage-desc { display: block; font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
 
 .progress {
@@ -266,7 +276,7 @@ function startReview() {
 .task-name-wrap { display: flex; flex-direction: column; }
 .task-name { font-size: 26rpx; font-weight: 700; color: #1f2d24; }
 .task-desc { font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
-.task-number { font-size: 34rpx; font-weight: 700; color: #1f2d24; }
+.task-number { font-size: 48rpx; font-weight: 800; color: #1f2d24; }
 .task-foot { display: block; font-size: 20rpx; color: #94a096; text-align: right; margin-top: 6rpx; }
 .lock-badge {
   font-size: 22rpx; color: #e09a2e; background: #fff3d8;
@@ -283,8 +293,11 @@ function startReview() {
 .btn-sub { color: rgba(255, 255, 255, 0.9); font-size: 22rpx; margin-top: 6rpx; }
 
 /* 底部草地 */
-.grass { position: relative; height: 120rpx; margin-top: -8rpx; overflow: hidden; }
-.hill { position: absolute; bottom: -60rpx; width: 320rpx; height: 160rpx; border-radius: 50%; }
-.hill-left { left: -80rpx; background: #d9edcf; }
-.hill-right { right: -90rpx; background: #cfe7c4; }
+.grass { position: relative; height: 130rpx; margin-top: -6rpx; overflow: hidden; }
+.hill { position: absolute; bottom: -70rpx; width: 300rpx; height: 170rpx; border-radius: 50%; }
+.hill-far-left { left: -150rpx; bottom: -90rpx; width: 260rpx; height: 150rpx; background: #e4f2d9; }
+.hill-left { left: -70rpx; background: #d3ebc6; }
+.hill-mid { left: 42%; bottom: -95rpx; width: 220rpx; height: 130rpx; background: #e0f0d3; }
+.hill-right { right: -80rpx; background: #cbe7bd; }
+.hill-far-right { right: -160rpx; bottom: -100rpx; width: 260rpx; height: 140rpx; background: #e6f3dc; }
 </style>

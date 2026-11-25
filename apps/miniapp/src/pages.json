@@ -13,24 +13,56 @@
       "path": "pages/vocabulary/index",
       "style": {
         "navigationBarTitleText": "Vocabulary",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
       }
     },
     {
       "path": "pages/progress/index",
       "style": {
         "navigationBarTitleText": "Progress",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
       }
     },
     {
       "path": "pages/profile/index",
       "style": {
         "navigationBarTitleText": "Profile",
-        "navigationBarBackgroundColor": "#ffffff",
-        "navigationBarTextStyle": "black"
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
+      }
+    },
+    {
+      "path": "pages/review/index",
+      "style": {
+        "navigationBarTitleText": "Review",
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
+      }
+    },
+    {
+      "path": "pages/word-learning/index",
+      "style": {
+        "navigationBarTitleText": "New Word",
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
+      }
+    },
+    {
+      "path": "pages/writing/index",
+      "style": {
+        "navigationBarTitleText": "Writing",
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
+      }
+    },
+    {
+      "path": "pages/daily-result/index",
+      "style": {
+        "navigationBarTitleText": "Daily Result",
+        "navigationStyle": "custom",
+        "backgroundColor": "#fffaf2"
       }
     },
     {

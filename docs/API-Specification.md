@@ -117,10 +117,33 @@ curl -X POST http://localhost:3000/api/learning/writing \
 标记关卡完成，并解锁同一 Unit 的下一关。
 
 ### GET /api/progress/daily-tasks?userId=xxx&date=YYYY-MM-DD
-获取/生成当日任务。已有则直接返回；没有则按词义生成最低 5 个新词任务（数据不足时按实际数量）。date 省略为今天。
+获取/生成当日任务。已有则直接返回；没有则按**当前解锁阶段的必学词义（`StageWord`，`isRequired=true`）**生成最低 5 个新词任务（数据不足时按实际数量），不再取全局 `WordSense` 前 5 个，避免旧示例词混入当日任务。date 省略为今天。
 
 ### POST /api/progress/daily-tasks/:taskId/complete?userId=xxx&date=YYYY-MM-DD
 完成任务，并同步 DailyLearning 的计数与最低任务完成标记。
+
+## 首页聚合
+
+### GET /api/home/summary?userId=xxx
+
+一次请求返回首页全部数据，避免多次往返：
+
+- `greeting` / `subtitle`：按服务器时间生成问候语；
+- `dayStreak`：从 `DailyLearning` 连续天数计算（今天没学从昨天算）；
+- `masteredCount`：已掌握词义数；
+- `currentStage`：当前阶段名、`Stage x of y`、已掌握/必学词数、进度百分比；
+- `reviewDueCount`：到期复习数；
+- `newWordsLocked`：`reviewDueCount > 0` 时为 true（复习优先规则）；
+- `newWordsMinimum`：每日最低新词数（5）；
+- `date`：服务器日期。
+
+```bash
+curl "http://localhost:3000/api/home/summary?userId=<用户ID>"
+```
+
+## 小程序端数据组装说明
+
+`/api/learning/due` 与 `/api/learning/words` 只返回 `wordSenseId`。小程序端通过 `GET /api/catalog/words` 把词义 ID 反查成可展示的单词、释义与图片；新词学习则用 `GET /api/catalog/stages` 找到首个 Level，再调 `/api/catalog/levels/:id/words` 取完整学习项（词义 + 单词音标/图片/发音）。
 
 ## 说明
 

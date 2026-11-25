@@ -153,21 +153,44 @@ export class ProgressService {
       update: {},
     })
 
-    // 若当天还没有任务，按必学词义生成最低 5 个新词任务
+    // 若当天还没有任务，按「当前阶段必学词义」生成最低 5 个新词任务。
+    // 不能简单取全局 WordSense 前 5 个，否则会把旧示例词混进当日任务，
+    // 导致课程词与每日任务对不上、任务计数无法同步。
     const existingCount = await this.prisma.dailyTask.count({
       where: { userId, learningDate },
     })
     if (existingCount === 0) {
-      const senses = await this.prisma.wordSense.findMany({
-        orderBy: { sortOrder: 'asc' },
-        take: DAILY_MINIMUM_NEW_WORDS,
+      const userStages = await this.prisma.userStage.findMany({
+        where: { userId },
+        include: { stage: true },
+        orderBy: { stage: { sortOrder: 'asc' } },
       })
-      for (const [index, sense] of senses.entries()) {
+      const current = userStages.find((s) => s.status !== 'completed') ?? userStages[0]
+
+      let senseIds: string[] = []
+      if (current) {
+        const stageWords = await this.prisma.stageWord.findMany({
+          where: { stageId: current.stageId, isRequired: true },
+          orderBy: { sortOrder: 'asc' },
+          take: DAILY_MINIMUM_NEW_WORDS,
+        })
+        senseIds = stageWords.map((item) => item.wordSenseId)
+      }
+      // 当前阶段尚无课程数据时，退回全局词义，避免任务为空
+      if (senseIds.length === 0) {
+        const fallback = await this.prisma.wordSense.findMany({
+          orderBy: { sortOrder: 'asc' },
+          take: DAILY_MINIMUM_NEW_WORDS,
+        })
+        senseIds = fallback.map((item) => item.id)
+      }
+
+      for (const [index, wordSenseId] of senseIds.entries()) {
         await this.prisma.dailyTask.create({
           data: {
             userId,
             learningDate,
-            wordSenseId: sense.id,
+            wordSenseId,
             taskType: 'new',
             sequence: index + 1,
             taskStatus: 'pending',
