@@ -17,6 +17,8 @@ _tmp_*
 apps/miniapp/dist/
 apps/miniapp/unpackage/
 apps/miniapp/.hbuilderx/
+apps/miniapp/project.config.json
+apps/miniapp/project.private.config.json
 apps/server/dist/
 database/pgdata/
 database/.pglite/
