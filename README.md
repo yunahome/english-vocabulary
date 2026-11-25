@@ -111,3 +111,7 @@ pnpm db:deploy     # 应用 migration（生产环境）
 微信小程序默认校验域名。开发时请在微信开发者工具中勾选
 「不校验合法域名、web-view（业务域名）、TLS 版本以及 HTTPS 证书」，
 或把 `VITE_API_BASE_URL` 改成局域网 IP。
+
+微信小程序 AppID 已配置为 `wx9ed13f9f8cbcf771`，位置在
+`apps/miniapp/src/manifest.json` 的 `mp-weixin.appid`。
+顶层 `appid` 是 DCloud 的 uni-app AppID，不是微信 AppID，保持为空即可。
