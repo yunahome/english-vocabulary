@@ -81,6 +81,33 @@ async function main() {
     })
   }
   console.log(`Seeded ${words.length} words.`)
+
+  // 数据迁移：为旧 Word（含新 seed 的单词）回填 WordSense。
+  // 旧 Word 的 meaning / example 转移到词义表，保留原字段不删以兼容现有 API。
+  // 用 findFirst 判重，保证重复执行不会生成重复词义。
+  const allWords = await prisma.word.findMany({ orderBy: { createdAt: 'asc' } })
+  let migratedCount = 0
+  for (const item of allWords) {
+    const existing = await prisma.wordSense.findFirst({
+      where: { wordId: item.id, definition: item.meaning },
+    })
+    if (existing) continue
+    await prisma.wordSense.create({
+      data: {
+        wordId: item.id,
+        partOfSpeech: 'unknown',
+        definition: item.meaning,
+        example: item.example,
+        sortOrder: 1,
+      },
+    })
+    migratedCount++
+  }
+  console.log(
+    migratedCount > 0
+      ? `Migrated ${migratedCount} word(s) into WordSense.`
+      : 'WordSense already up to date.',
+  )
 }
 
 main()

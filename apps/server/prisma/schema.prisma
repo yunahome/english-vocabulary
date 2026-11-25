@@ -17,6 +17,8 @@ model Word {
   updatedAt DateTime @updatedAt
 
   learningRecords LearningRecord[]
+  senses          WordSense[]
+  forms           WordForm[]
 
   @@index([createdAt])
 }
@@ -66,6 +68,42 @@ model Stage {
   units Unit[]
 
   @@index([sortOrder])
+}
+
+// ===== 第二批：词汇体系（WordSense / WordForm）=====
+// 注意：Word.id 是 text 类型（旧表），所以外键 wordId 不加 @db.Uuid，
+// 保持与 Word.id 类型一致，否则 Prisma 校验会失败。
+// Word 的 meaning / example 字段暂时保留（现有 API 与小程序依赖），
+// 词义数据通过 seed 回填到 WordSense，后续批次再评估是否移除旧字段。
+
+model WordSense {
+  id                 String   @id @default(uuid()) @db.Uuid
+  wordId             String
+  partOfSpeech       String
+  definition         String
+  englishDefinition  String?
+  example            String?
+  exampleTranslation String?
+  sortOrder          Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@index([wordId])
+  @@index([wordId, sortOrder])
+}
+
+model WordForm {
+  id       String @id @default(uuid()) @db.Uuid
+  wordId   String
+  form     String
+  formType String
+
+  word Word @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@unique([wordId, form, formType])
+  @@index([wordId])
 }
 
 model Unit {
