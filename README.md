@@ -1,8 +1,8 @@
-# englis-vocabulary
+# english-vocabulary
 
 背单词微信小程序项目骨架：uni-app 小程序 + NestJS 后端 + PostgreSQL，前后端独立运行、同一 Git 仓库管理。
 
-> 本地目录名按需求原文保留 `englis-vocabulary`（`englis` 无 h）；Git 远程仓库名为 `english-vocabulary`，地址 `https://github.com/yunahome/english-vocabulary.git`。
+> 本地目录名与 Git 远程仓库名均已统一为 `english-vocabulary`，本地路径 `/Users/yktc/Documents/english-vocabulary`，远程地址 `https://github.com/yunahome/english-vocabulary.git`。
 
 当前状态：**技术骨架已搭好，并有一条端到端跑通的数据链路**（数据库 → 后端 REST → 小程序页面）。学习记录、微信登录、云端部署等属于后续阶段，尚未实现。
 
@@ -28,7 +28,7 @@
 ## 目录结构
 
 ```
-englis-vocabulary/
+english-vocabulary/
 ├── apps/
 │   ├── miniapp/                  # uni-app Vue3 微信小程序
 │   │   └── src/
@@ -84,7 +84,7 @@ englis-vocabulary/
 ## 快速开始（Docker，推荐）
 
 ```bash
-cd /Users/yktc/Documents/englis-vocabulary
+cd /Users/yktc/Documents/english-vocabulary
 
 # 1. 安装依赖并生成 Prisma Client
 pnpm setup
