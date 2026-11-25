@@ -48,3 +48,50 @@ model LearningRecord {
   @@index([userId])
   @@index([wordId])
 }
+
+// ===== 第一批：课程管理（Stage / Unit / Level）=====
+// 说明：StageWord / UserStage / LevelWord / UserLevel 属于后续批次，
+// 这些关联字段会在对应模型创建后再补上，避免引用不存在的模型导致校验失败。
+
+model Stage {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  code        String   @unique
+  sortOrder   Int      @default(0)
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  units Unit[]
+
+  @@index([sortOrder])
+}
+
+model Unit {
+  id        String   @id @default(uuid()) @db.Uuid
+  stageId   String   @db.Uuid
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  stage  Stage   @relation(fields: [stageId], references: [id], onDelete: Restrict)
+  levels Level[]
+
+  @@unique([stageId, sortOrder])
+  @@index([stageId])
+}
+
+model Level {
+  id        String   @id @default(uuid()) @db.Uuid
+  unitId    String   @db.Uuid
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  unit Unit @relation(fields: [unitId], references: [id], onDelete: Restrict)
+
+  @@unique([unitId, sortOrder])
+  @@index([unitId])
+}
