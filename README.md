@@ -67,14 +67,22 @@ english-vocabulary/
 
 ## 已实现功能
 
-- **数据库**：`Word`、`User`、`LearningRecord` 三个模型（`User`/`LearningRecord` 已建表但尚无 API）。
-- **后端接口**：
+- **数据库**：17 张业务表，覆盖课程（Stage/Unit/Level）、词汇（Word/WordSense/WordForm）、关联（LevelWord/StageWord）、用户掌握（UserWord/WritingRecord）、进度与每日任务（UserStage/UserLevel/DailyLearning/DailyTask/ReviewRecord）六大模块。
+- **后端接口**（完整清单见 `docs/API-Specification.md`）：
   - `GET /api/health`：健康检查
-  - `GET /api/words`：单词列表
-  - `POST /api/words`：新增单词
+  - `GET /api/words`、`POST /api/words`：原单词接口（向后兼容）
+  - `POST /api/users`、`GET /api/users`：用户
+  - `/api/catalog/*`：课程树、单词带词义、关卡/阶段词义
+  - `/api/learning/*`：提交拼写、掌握状态、到期复习、标记遗忘
+  - `/api/progress/*`：阶段/关卡进度、每日任务生成与完成
   - 统一响应结构、DTO 校验、全局异常处理、CORS 放开。
-- **小程序**：请求封装（自动拆包 `code/data/message`）、Pinia 单词 store、单词本页面（列表 + 新增）。
-- **共享类型**：`WordDto`、`CreateWordInput`、`ApiResponse`、`HealthDto`。
+- **业务规则**（在后端 Service 中实现，非数据库约束）：
+  - 每次测试写入 WritingRecord 保留完整历史；
+  - 只有「独立作答 + 计划测试」计入有效掌握，立即重试不计；
+  - 连续 3 次有效正确 → mastered；每次正确后 nextReviewAt = +7 天；
+  - 答错 streak 清零、标记遗忘回退状态；阶段/关卡按顺序解锁。
+- **小程序**：请求封装（自动拆包 `code/data/message`）、Pinia 单词 store、单词本页面（列表 + 新增）。业务接口已就绪，页面尚未接入课程/学习流程。
+- **共享类型**：课程、词汇、用户、学习提交、进度与每日任务的 DTO。
 
 ## 环境要求
 
