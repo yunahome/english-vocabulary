@@ -2,7 +2,7 @@
 
 背单词微信小程序项目骨架：uni-app 小程序 + NestJS 后端 + PostgreSQL，前后端独立运行、同一 Git 仓库管理。
 
-> 目录名按需求原文保留 `englis-vocabulary`（`englis` 无 h），Git 远程仓库名为 `english--vocabulary`。
+> 本地目录名按需求原文保留 `englis-vocabulary`（`englis` 无 h）；Git 远程仓库名为 `english-vocabulary`，地址 `https://github.com/yunahome/english-vocabulary.git`。
 
 当前状态：**技术骨架已搭好，并有一条端到端跑通的数据链路**（数据库 → 后端 REST → 小程序页面）。学习记录、微信登录、云端部署等属于后续阶段，尚未实现。
 
