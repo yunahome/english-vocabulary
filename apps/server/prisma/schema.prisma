@@ -31,6 +31,8 @@ model User {
   updatedAt DateTime @updatedAt
 
   learningRecords LearningRecord[]
+  userWords       UserWord[]
+  writingRecords  WritingRecord[]
 }
 
 model LearningRecord {
@@ -88,9 +90,11 @@ model WordSense {
   createdAt          DateTime @default(now())
   updatedAt          DateTime @updatedAt
 
-  word       Word        @relation(fields: [wordId], references: [id], onDelete: Cascade)
-  levelWords LevelWord[]
-  stageWords StageWord[]
+  word           Word            @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  levelWords     LevelWord[]
+  stageWords     StageWord[]
+  userWords      UserWord[]
+  writingRecords WritingRecord[]
 
   @@index([wordId])
   @@index([wordId, sortOrder])
@@ -170,4 +174,55 @@ model StageWord {
   @@unique([stageId, wordSenseId])
   @@index([stageId])
   @@index([wordSenseId])
+}
+
+// ===== 第四批：用户单词掌握（UserWord / WritingRecord）=====
+// 注意：User.id 是 text（旧表），故 userId 不加 @db.Uuid；
+// WordSense.id 是 @db.Uuid，故 wordSenseId 用 @db.Uuid。
+// WritingRecord.retryOfRecordId 自关联到错误记录，用 @db.Uuid。
+
+model UserWord {
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String
+  wordSenseId    String    @db.Uuid
+  status         String    @default("not_started")
+  correctStreak  Int       @default(0)
+  firstLearnedAt DateTime?
+  lastTestedAt   DateTime?
+  lastCorrectAt  DateTime?
+  nextReviewAt   DateTime?
+  masteredAt     DateTime?
+  forgottenAt    DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordSense WordSense @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, wordSenseId])
+  @@index([userId])
+  @@index([wordSenseId])
+  @@index([nextReviewAt])
+}
+
+model WritingRecord {
+  id                    String   @id @default(uuid()) @db.Uuid
+  userId                String
+  wordSenseId           String   @db.Uuid
+  inputAnswer           String
+  isCorrect             Boolean
+  isIndependent         Boolean  @default(true)
+  attemptType           String   @default("scheduled")
+  isValidMasteryAttempt Boolean  @default(true)
+  retryOfRecordId       String?  @db.Uuid
+  testedAt              DateTime @default(now())
+
+  user          User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  wordSense     WordSense       @relation(fields: [wordSenseId], references: [id], onDelete: Cascade)
+  retryOfRecord WritingRecord?  @relation("WritingRecordRetry", fields: [retryOfRecordId], references: [id], onDelete: SetNull)
+  retries       WritingRecord[] @relation("WritingRecordRetry")
+
+  @@index([userId])
+  @@index([wordSenseId])
+  @@index([testedAt])
 }
