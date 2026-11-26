@@ -33,7 +33,7 @@
 ## 页面清单
 
 ### 1. Home（Tab）
-顶部问候语 + 太阳 + 右侧头像；整块吉祥物 banner（老鼠抱书 + "Let's learn something new!" 气泡 + 星星 + 草地）；Day Streak / Words Mastered 双卡；Current Stage 卡（书本图标、阶段名、`Stage x of 5`、`x / y words`、进度条）；Today's Tasks（Review / New Words 两张卡，`🔒 Locked` 与 `Finish review first` 由复习优先级决定）；Start Review 主按钮；底部草地；4 Tab。
+顶部问候语 + 太阳 + 右侧头像；整块吉祥物 banner（老鼠抱书 + "Let's learn something new!" 气泡 + 星星 + 草地）；Day Streak / Words Mastered 双卡；Current Stage 卡（书本图标、阶段名、`Stage x of 5`、`x / y words`、进度条）；Today's Tasks：Review 卡显示今日已完成/到期任务数与进度条，New Words 卡显示今日已学新词数与进度条（有到期复习时显示锁徽章和 `Finish review first`）；主按钮在**有到期复习**时显示 `Start Review` + `x words waiting for you`，**无到期复习**时显示 `Start New Words` + `今日已学数 · daily minimum`；底部草地；4 Tab。
 
 数据来自 `GET /api/home/summary`，`onShow` 时刷新，保证学完返回后统计即时更新。
 

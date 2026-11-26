@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import type { HomeSummaryDto } from '@englis-vocabulary/shared'
 import { getHomeSummary } from '@/api/home'
@@ -13,6 +13,19 @@ const nav = getNavMetrics()
 const summary = ref<HomeSummaryDto | null>(null)
 const loading = ref(true)
 const error = ref('')
+
+/** 复习进度：今日已完成 / 今日到期任务总数 */
+const reviewProgress = computed(() => {
+  const s = summary.value
+  if (!s || s.todayReviewTasks === 0) return 0
+  return Math.min(100, Math.round((s.todayReviews / s.todayReviewTasks) * 100))
+})
+/** 新词进度：今日已完成 / 每日最低要求 */
+const newWordsProgress = computed(() => {
+  const s = summary.value
+  if (!s) return 0
+  return Math.min(100, Math.round((s.todayNewWords / s.newWordsMinimum) * 100))
+})
 
 async function load() {
   loading.value = true
@@ -30,9 +43,9 @@ async function load() {
 // tabBar 页面切回来时重新拉数据，保证学完后统计立刻更新
 onShow(load)
 
-async function startReview() {
+async function startStudy() {
   const userId = await userStore.ensureUser()
-  // PRD 7.2：不清空会话，由 review 页恢复当天断点
+  // PRD 7.2：不清空会话，由 review 页恢复当天断点；无到期复习时它会自动进入新词学习
   learningStore.userId = userId
   uni.navigateTo({ url: '/pages/review/index' })
 }
@@ -113,9 +126,14 @@ async function startReview() {
             <text class="task-number">{{ summary.reviewDueCount }}</text>
           </view>
           <view class="progress slim">
-            <view class="progress-fill" style="width: 0%" />
+            <view
+              class="progress-fill"
+              :style="{ width: reviewProgress + '%' }"
+            />
           </view>
-          <text class="task-foot">0 / {{ summary.reviewDueCount }} completed</text>
+          <text class="task-foot">
+            {{ summary.todayReviews }} / {{ summary.todayReviewTasks }} completed
+          </text>
         </view>
       </view>
 
@@ -135,15 +153,26 @@ async function startReview() {
             />
           </view>
           <view class="progress slim">
-            <view class="progress-fill" style="width: 0%" />
+            <view
+              class="progress-fill new-fill"
+              :style="{ width: newWordsProgress + '%' }"
+            />
           </view>
-          <text v-if="summary.newWordsLocked" class="task-foot">Finish review first</text>
+          <text class="task-foot">
+            {{ summary.newWordsLocked
+              ? 'Finish review first'
+              : `${summary.todayNewWords} learned today` }}
+          </text>
         </view>
       </view>
 
-      <button class="primary-button" @tap="startReview">
-        <text class="btn-main">Start Review</text>
-        <text class="btn-sub">{{ summary.reviewDueCount }} words waiting for you</text>
+      <button class="primary-button" @tap="startStudy">
+        <text class="btn-main">{{ summary.reviewDueCount > 0 ? 'Start Review' : 'Start New Words' }}</text>
+        <text class="btn-sub">
+          {{ summary.reviewDueCount > 0
+            ? `${summary.reviewDueCount} words waiting for you`
+            : `${summary.todayNewWords} learned today · ${summary.newWordsMinimum} daily minimum` }}
+        </text>
       </button>
     </block>
 
@@ -378,6 +407,9 @@ async function startReview() {
   height: 100%;
   border-radius: 14rpx;
   background: #3cbc7e;
+}
+.progress-fill.new-fill {
+  background: #f0a500;
 }
 
 .tasks-title-row {

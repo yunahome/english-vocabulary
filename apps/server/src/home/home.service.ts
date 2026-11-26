@@ -84,6 +84,14 @@ export class HomeService {
       },
     })
 
+    // 今日学习汇总（PRD：首页要体现今天学了什么）
+    const todayLearning = await this.prisma.dailyLearning.findUnique({
+      where: { userId_learningDate: { userId, learningDate: today } },
+      select: { newWordCount: true, reviewWordCount: true, masteredCount: true },
+    })
+    const todayReviewTasks = await this.prisma.dailyTask.count({
+      where: { userId, learningDate: today, taskType: 'review' },
+    })
     // Day Streak：从今天（或昨天）往前数连续的 DailyLearning 记录
     const dayStreak = await this.calculateStreak(userId, today)
 
@@ -100,6 +108,10 @@ export class HomeService {
       reviewDueCount,
       newWordsLocked: reviewDueCount > 0,
       newWordsMinimum: 5,
+      todayNewWords: todayLearning?.newWordCount ?? 0,
+      todayReviews: todayLearning?.reviewWordCount ?? 0,
+      todayReviewTasks,
+      todayMastered: todayLearning?.masteredCount ?? 0,
       date: todayKey,
     }
   }

@@ -209,5 +209,13 @@ export interface HomeSummaryDto {
   reviewDueCount: number
   newWordsLocked: boolean
   newWordsMinimum: number
+  /** 今日已完成的新词数（DailyLearning.newWordCount） */
+  todayNewWords: number
+  /** 今日已完成的复习数（DailyLearning.reviewWordCount） */
+  todayReviews: number
+  /** 今日复习任务总数（含已完成和待完成） */
+  todayReviewTasks: number
+  /** 今日新掌握词数 */
+  todayMastered: number
   date: string
 }

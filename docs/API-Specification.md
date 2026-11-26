@@ -159,6 +159,7 @@ curl -X POST http://localhost:3000/api/learning/writing \
 - `reviewDueCount`：到期复习数；
 - `newWordsLocked`：`reviewDueCount > 0` 时为 true（复习优先规则）；
 - `newWordsMinimum`：每日最低新词数（5）；
+- `todayNewWords` / `todayReviews` / `todayReviewTasks` / `todayMastered`：当天 `DailyLearning` 的已完成新词/复习/今日复习任务总数/新掌握数，用于首页任务卡进度；
 - `date`：用户时区下的自然日。
 
 ```bash
