@@ -1,5 +1,4 @@
-import { Injectable, ConflictException } from '@nestjs/common'
-import { Prisma } from '@prisma/client'
+import { Injectable } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import type { UserDto } from '@englis-vocabulary/shared'
@@ -33,12 +32,14 @@ export class UsersService {
     id: string
     openid: string | null
     nickname: string | null
+    timezone: string
     createdAt: Date
   }): UserDto {
     return {
       id: user.id,
       openid: user.openid,
       nickname: user.nickname,
+      timezone: user.timezone,
       createdAt: user.createdAt.toISOString(),
     }
   }

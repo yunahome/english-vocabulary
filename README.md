@@ -5,7 +5,7 @@
 > 本地目录：`/Users/yktc/Documents/english-vocabulary`
 > Git 远程：`https://github.com/yunahome/english-vocabulary.git`（`main` 分支）
 
-当前状态：**工程骨架 + 核心学习闭环 MVP 已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通，端到端实测通过。微信登录、真实发音音频、云端部署属于后续阶段。
+当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖。按 PRD 第 14 章的 MVP 17 项，剩余「每 10 词弹窗」「学习断点恢复」两项，补掌握模式待完善；发音音频与云端部署属于后续阶段。
 
 完整产品需求见根目录 `prd.md`（V1.2），UI 设计稿对应 `docs/UI-Specification.md`。
 
@@ -26,7 +26,7 @@
 | 无 Docker 备选 | PGlite（WASM PostgreSQL） | 0.6.0 |
 | API 风格 | REST | 统一 `{ code, data, message }` |
 
-规划中（未接入）：腾讯云 COS、微信登录、发音音频、学习提醒、云端部署。
+规划中（未接入）：每 10 词弹窗、学习断点恢复、补掌握模式、腾讯云 COS、发音音频、学习提醒、云端部署。
 
 ## 目录结构
 
@@ -51,8 +51,7 @@ english-vocabulary/
 │   │   │   ├── static/
 │   │   │   │   ├── assets/           # 从 UI 设计稿裁出的插画/苹果/动物图
 │   │   │   │   └── tab-*.png         # 8 个实心 Tab 图标
-│   │   │   ├── pages.json            # 页面路由 + tabBar（custom: true）
-│   │   │   ├── custom-tab-bar/       # 原生自定义 TabBar（白色圆角悬浮卡片）
+│   │   │   ├── pages.json            # 页面路由 + 原生 tabBar
 │   │   │   ├── manifest.json         # 微信 AppID 等原生配置
 │   │   │   └── uni.scss              # 全局样式变量
 │   │   └── dist/                     # 编译产物（gitignore）
@@ -122,7 +121,7 @@ english-vocabulary/
 
 `stores/learning.ts` 把 Review → New Word → Writing → Daily Result 串成一次学习会话，并负责提交拼写、完成每日任务、统计汇总。没有到期复习词时，Review 页用关卡词做「首次独立拼写练习」，写入真实学习记录，7 天后自然进入复习队列。
 
-**底部 TabBar**：设计稿是白色圆角悬浮卡片，原生 tabBar 做不到，因此 `pages.json` 开启 `tabBar.custom = true`，由原生组件 `src/custom-tab-bar/`（js/json/wxml/wxss 四件套）渲染；图标为实心风格，由 `scripts/gen-tab-icons.mjs` 生成（4x 超采样 + 降采样抗锯齿）。若想临时退回原生 tabBar，把 `pages.json` 里 `"custom": true` 改为 `false` 并重新编译即可。
+**底部 TabBar**：使用微信小程序原生 tabBar，由微信容器负责底部定位和安全区。图标为实心风格，由 `scripts/gen-tab-icons.mjs` 生成（4x 超采样 + 降采样抗锯齿）。
 
 **UI 素材**：`static/assets/` 下 11 张图片均从用户提供的 5 张 UI 设计稿裁出（首页 banner、苹果大图、4 张词库动物图、4 张页面老鼠插画、每日总结头部）。它们是位图，自带奶油色背景；发音 `pronunciationUrl` 目前为空，点扬声器会提示「发音素材待接入」。
 
@@ -258,7 +257,8 @@ H5 预览：`pnpm --filter @englis-vocabulary/miniapp dev:h5`（根 package.json
 
 - **域名校验**：开发者工具勾选「不校验合法域名…」。`localhost` 只在电脑上的模拟器有效；真机预览需把 `apps/miniapp/.env` 的 `VITE_API_BASE_URL` 改为电脑局域网 IP（如 `http://192.168.48.108:3000/api`），手机与电脑同一 Wi-Fi。
 - **AppID**：`wx9ed13f9f8cbcf771`，在 `apps/miniapp/src/manifest.json` 的 `mp-weixin.appid`。顶层 `appid` 是 DCloud 的 uni-app AppID，保持为空；构建时 "Appid 未配置" 提示不影响微信端。
-- **自定义导航栏**：学习流程页与 Vocabulary / Progress / Profile 使用 `navigationStyle: custom`，页面自己处理状态栏高度并避开右上角胶囊；Home 保留原生导航栏。
+- **微信登录**：服务端需配置 `WECHAT_APP_SECRET` 与高强度的 `AUTH_TOKEN_SECRET`。小程序首次进入调用 `wx.login`，服务端使用 `code2Session` 换取 openid，并签发会话 Token。
+- **自定义导航栏**：Home、学习流程页与 Vocabulary / Progress / Profile 使用 `navigationStyle: custom`，页面自己处理状态栏高度并避开右上角胶囊。
 - **端口冲突**：`EADDRINUSE port 3000` 表示已有后端在跑，不要重复启动，直接用即可。
 - **数据库配置**：根目录 `.env` 的 `DATABASE_URL` 中 `pgbouncer=true&connection_limit=1` 原本为兼容 PGlite 添加，对真实 PostgreSQL 无副作用。数据存于 Docker 卷 `database_postgres_data`，`pnpm db:down` 只停容器、不删数据。
 - **发音素材**：`pronunciationUrl` 为空，替换 `seed.ts` 的音频地址并接入播放器即可生效。

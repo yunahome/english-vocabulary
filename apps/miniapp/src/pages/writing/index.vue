@@ -10,6 +10,8 @@ const nav = getNavMetrics()
 const submitting = ref(false)
 
 const current = computed(() => learning.current)
+const hasFeedback = computed(() => learning.feedback !== null)
+const feedbackCorrect = computed(() => learning.feedback?.correct === true)
 const barPercent = computed(() =>
   learning.newTotal > 0
     ? Math.round(((learning.newIndex + 1) / learning.newTotal) * 100)
@@ -84,16 +86,16 @@ function close() {
 
       <text class="definition">{{ current.definition }}</text>
 
-      <view v-if="learning.feedback" class="feedback" :class="learning.feedback.correct ? 'ok' : 'bad'">
-        <text class="feedback-title">{{ learning.feedback.correct ? '✓ Correct!' : '✕ Not quite' }}</text>
-        <block v-if="!learning.feedback.correct">
+      <view v-if="hasFeedback" class="feedback" :class="feedbackCorrect ? 'ok' : 'bad'">
+        <text class="feedback-title">{{ feedbackCorrect ? '✓ Correct!' : '✕ Not quite' }}</text>
+        <block v-if="!feedbackCorrect">
           <text class="answer-line">{{ current.word }} {{ current.phonetic || '' }}</text>
           <text class="answer-def">{{ current.englishDefinition }}</text>
         </block>
-        <text class="feedback-note">{{ learning.feedback.result.reason }}</text>
+        <text class="feedback-note">{{ learning.feedback?.result.reason }}</text>
       </view>
 
-      <block v-if="!learning.feedback">
+      <block v-if="!hasFeedback">
         <input
           class="answer-input"
           :value="learning.answer"
@@ -105,7 +107,7 @@ function close() {
         />
         <button class="primary" :disabled="submitting" @tap="onSubmit">Submit</button>
       </block>
-      <block v-else-if="learning.feedback.correct">
+      <block v-else-if="feedbackCorrect">
         <button class="primary" @tap="onContinue">Continue</button>
       </block>
       <block v-else>

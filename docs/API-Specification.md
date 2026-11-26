@@ -14,6 +14,39 @@ Base URL：`http://localhost:3000/api`
 { "code": 503, "data": null, "message": "数据库连接失败，请确认 PostgreSQL 已启动且 DATABASE_URL 正确" }
 ```
 
+除健康检查、课程/词库读取和登录接口外，用户接口必须携带：
+
+```http
+Authorization: Bearer <token>
+```
+
+用户身份以 Token 为准；客户端传入的 `userId` 不再作为鉴权依据。
+
+## 微信登录
+
+### POST /api/auth/wechat/login
+
+小程序通过 `wx.login` 获取临时 `code`，服务端调用微信 `code2Session` 并用 openid 幂等创建/恢复用户。
+
+```bash
+curl -X POST http://localhost:3000/api/auth/wechat/login \
+  -H 'Content-Type: application/json' \
+  -d '{"code":"<wx.login code>","timezone":"Asia/Shanghai"}'
+```
+
+服务端配置：
+
+```dotenv
+WECHAT_APP_ID=wx9ed13f9f8cbcf771
+WECHAT_APP_SECRET=<微信小程序密钥>
+AUTH_TOKEN_SECRET=<长随机字符串>
+AUTH_TOKEN_TTL_SECONDS=2592000
+```
+
+### GET /api/auth/me
+
+验证当前 Token 并返回用户资料。
+
 ## GET /api/health
 
 健康检查，不依赖数据库。
@@ -40,20 +73,6 @@ curl -X POST http://localhost:3000/api/words \
   -d '{"word":"persist","meaning":"坚持；持续","phonetic":"/pərˈsɪst/","example":"Keep practicing and persist."}'
 ```
 
-## 用户
-
-### POST /api/users
-创建用户。带 `openid` 时按 openid 幂等（已存在直接返回），不带则每次新建（开发测试用）。
-
-```bash
-curl -X POST http://localhost:3000/api/users \
-  -H 'Content-Type: application/json' \
-  -d '{"openid":"dev-test-001","nickname":"测试用户"}'
-```
-
-### GET /api/users
-用户列表。
-
 ## 课程与词汇（catalog）
 
 ### GET /api/catalog/stages
@@ -75,14 +94,16 @@ curl -X POST http://localhost:3000/api/users \
 
 - 每次测试都写入 `WritingRecord`，保留完整历史。
 - **只有「独立作答 且 attemptType=scheduled」才计入有效掌握次数**；`immediate_retry`（立即重试）不计。
-- 有效且正确 → `correctStreak + 1`；连续 **3 次**有效正确 → 标记 `mastered`。
-- 每次正确后 `nextReviewAt` = 现在 + **7 天**。
-- 答错 → `correctStreak` 归零，已掌握退回 learning。
+- 服务端根据数据库标准答案判断拼写是否正确，客户端不能上传 `isCorrect`。
+- 有效且正确，且距离上次有效答对至少 **7 天** → `correctStreak + 1`；连续 **3 次**有效正确 → 标记 `mastered`。
+- 有效正确后 `nextReviewAt` = 现在 + **7 天**；达到 mastered 后退出普通自动复习队列。
+- 正式测试答错 → `correctStreak` 归零，已掌握退回 learning。
 
 ```bash
 curl -X POST http://localhost:3000/api/learning/writing \
   -H 'Content-Type: application/json' \
-  -d '{"userId":"<用户ID>","wordSenseId":"<词义ID>","inputAnswer":"vocabulary","isCorrect":true,"attemptType":"scheduled"}'
+  -H 'Authorization: Bearer <token>' \
+  -d '{"wordSenseId":"<词义ID>","inputAnswer":"vocabulary","attemptType":"scheduled"}'
 ```
 
 返回示例：
@@ -90,55 +111,56 @@ curl -X POST http://localhost:3000/api/learning/writing \
 {"code":0,"data":{"recordId":"...","isValidMasteryAttempt":true,"correctStreak":1,"status":"learning","mastered":false,"nextReviewAt":"2026-12-02T...","reason":"有效正确，连续 1/3 次"},"message":"ok"}
 ```
 
-### GET /api/learning/words?userId=xxx
+### GET /api/learning/words
 某用户的全部掌握状态（UserWord 列表）。
 
-### GET /api/learning/due?userId=xxx
+### GET /api/learning/due
 到期复习列表（`nextReviewAt <= 现在`，或标记遗忘的）。
 
-### PUT /api/learning/words/:wordSenseId/forgot?userId=xxx
+### PUT /api/learning/words/:wordSenseId/forgot
 主动标记遗忘：状态回退 learning、streak 清零、masteredAt 清空，但保留 WritingRecord 历史。
 
 ## 用户进度与每日任务（progress）
 
-### POST /api/progress/stages/init?userId=xxx
+### POST /api/progress/stages/init
 初始化阶段进度：首个阶段 unlocked，其余 locked（幂等）。
 
-### GET /api/progress/stages?userId=xxx
+### GET /api/progress/stages
 阶段进度列表。
 
-### POST /api/progress/stages/:stageId/unlock-next?userId=xxx
-解锁下一阶段。
+### POST /api/progress/stages/:stageId/unlock-next
+当前阶段全部必学词义达到 mastered 后才允许完成当前阶段并解锁下一阶段。
 
-### GET /api/progress/levels?userId=xxx
+### GET /api/progress/levels
 关卡进度列表。
 
-### POST /api/progress/levels/:levelId/complete?userId=xxx
+### POST /api/progress/levels/:levelId/complete
 标记关卡完成，并解锁同一 Unit 的下一关。
 
-### GET /api/progress/daily-tasks?userId=xxx&date=YYYY-MM-DD
+### GET /api/progress/daily-tasks?date=YYYY-MM-DD
 获取/生成当日任务。已有则直接返回；没有则按**当前解锁阶段的必学词义（`StageWord`，`isRequired=true`）**生成最低 5 个新词任务（数据不足时按实际数量），不再取全局 `WordSense` 前 5 个，避免旧示例词混入当日任务。date 省略为今天。
 
-### POST /api/progress/daily-tasks/:taskId/complete?userId=xxx&date=YYYY-MM-DD
-完成任务，并同步 DailyLearning 的计数与最低任务完成标记。
+### POST /api/progress/daily-tasks/:taskId/complete
+完成任务，并同步 DailyLearning 的计数与最低任务完成标记。存在未完成 review 任务时，完成 new 任务会返回 400。
 
 ## 首页聚合
 
-### GET /api/home/summary?userId=xxx
+### GET /api/home/summary
 
 一次请求返回首页全部数据，避免多次往返：
 
-- `greeting` / `subtitle`：按服务器时间生成问候语；
+- `greeting` / `subtitle`：按用户时区生成问候语；
 - `dayStreak`：从 `DailyLearning` 连续天数计算（今天没学从昨天算）；
 - `masteredCount`：已掌握词义数；
 - `currentStage`：当前阶段名、`Stage x of y`、已掌握/必学词数、进度百分比；
 - `reviewDueCount`：到期复习数；
 - `newWordsLocked`：`reviewDueCount > 0` 时为 true（复习优先规则）；
 - `newWordsMinimum`：每日最低新词数（5）；
-- `date`：服务器日期。
+- `date`：用户时区下的自然日。
 
 ```bash
-curl "http://localhost:3000/api/home/summary?userId=<用户ID>"
+curl "http://localhost:3000/api/home/summary" \
+  -H 'Authorization: Bearer <token>'
 ```
 
 ## 小程序端数据组装说明
@@ -147,7 +169,7 @@ curl "http://localhost:3000/api/home/summary?userId=<用户ID>"
 
 ## 说明
 
-- 当前 `userId` 由接口参数传入（开发阶段）。接入微信登录后由网关/鉴权层注入，业务接口无需改动。
+- 当前 `userId` 由鉴权守卫从 Bearer Token 注入，客户端不能通过 query/body 冒充其他用户。
 - 业务规则（三次正确、7 天间隔、阶段解锁）在 `LearningService` / `ProgressService` 中用代码实现，不固化在数据库约束里。
 
 ## Postman

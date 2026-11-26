@@ -14,22 +14,22 @@ export function submitWriting(input: SubmitWritingInput): Promise<WritingResultD
   })
 }
 
-export function getUserWords(userId: string): Promise<UserWordDto[]> {
+export function getUserWords(): Promise<UserWordDto[]> {
   return request<UserWordDto[]>({
-    url: `/learning/words?userId=${encodeURIComponent(userId)}`,
+    url: '/learning/words',
   })
 }
 
-export function getDueReviews(userId: string): Promise<UserWordDto[]> {
+export function getDueReviews(): Promise<UserWordDto[]> {
   return request<UserWordDto[]>({
-    url: `/learning/due?userId=${encodeURIComponent(userId)}`,
+    url: '/learning/due',
   })
 }
 
 /** 主动标记遗忘：状态回退 learning，重新进入三次正确书写流程 */
-export function markForgotten(userId: string, wordSenseId: string): Promise<UserWordDto> {
+export function markForgotten(wordSenseId: string): Promise<UserWordDto> {
   return request<UserWordDto>({
-    url: `/learning/words/${encodeURIComponent(wordSenseId)}/forgot?userId=${encodeURIComponent(userId)}`,
+    url: `/learning/words/${encodeURIComponent(wordSenseId)}/forgot`,
     method: 'PUT',
   })
 }

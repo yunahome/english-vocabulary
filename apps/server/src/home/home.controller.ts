@@ -1,5 +1,6 @@
-import { Controller, Get, Query } from '@nestjs/common'
+import { Controller, Get } from '@nestjs/common'
 import { HomeService } from './home.service'
+import { CurrentUserId } from '../auth/auth.decorators'
 
 @Controller('home')
 export class HomeController {
@@ -7,7 +8,7 @@ export class HomeController {
 
   /** 首页聚合数据：一次请求拿到所有卡片数据 */
   @Get('summary')
-  getSummary(@Query('userId') userId: string) {
+  getSummary(@CurrentUserId() userId: string) {
     return this.homeService.getSummary(userId)
   }
 }

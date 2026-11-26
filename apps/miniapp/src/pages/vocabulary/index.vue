@@ -122,7 +122,7 @@ async function load() {
     }
     const [levelItems, userWords] = await Promise.all([
       getLevelWords(level.id),
-      getUserWords(id),
+      getUserWords(),
     ])
     items.value = decorate(levelItems, userWords)
   } catch (err) {
@@ -138,7 +138,7 @@ async function onForgot() {
   if (!detail.value || working.value) return
   working.value = true
   try {
-    await markForgotten(userId.value, detail.value.wordSenseId)
+    await markForgotten(detail.value.wordSenseId)
     uni.showToast({ title: '已重新加入学习', icon: 'success' })
     detail.value = null
     await load()

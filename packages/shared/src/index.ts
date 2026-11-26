@@ -93,6 +93,7 @@ export interface UserDto {
   id: string
   openid: string | null
   nickname: string | null
+  timezone: string
   createdAt: string
 }
 
@@ -101,12 +102,20 @@ export interface CreateUserInput {
   nickname?: string
 }
 
+export interface WechatLoginInput {
+  code: string
+  timezone?: string
+}
+
+export interface AuthSessionDto {
+  token: string
+  user: UserDto
+}
+
 // ===== 学习提交 =====
 export interface SubmitWritingInput {
-  userId: string
   wordSenseId: string
   inputAnswer: string
-  isCorrect: boolean
   isIndependent?: boolean
   attemptType?: 'scheduled' | 'immediate_retry'
   retryOfRecordId?: string

@@ -96,7 +96,7 @@ export const useLearningStore = defineStore('learning', () => {
 
   /** 把 wordSenseId 反查成可展示的词义（后端只给了 ID，用课程词表 join） */
   async function buildDueItems(id: string): Promise<StudyItem[]> {
-    const [due, words] = await Promise.all([getDueReviews(id), getCatalogWords()])
+    const [due, words] = await Promise.all([getDueReviews(), getCatalogWords()])
     if (due.length === 0) return []
     const lookup = new Map<
       string,
@@ -140,7 +140,7 @@ export const useLearningStore = defineStore('learning', () => {
 
   async function loadDailyTasks(id: string) {
     try {
-      const result = await getDailyTasks(id)
+      const result = await getDailyTasks()
       dailyTasks.value = result.tasks
     } catch {
       dailyTasks.value = []
@@ -175,25 +175,27 @@ export const useLearningStore = defineStore('learning', () => {
   async function checkAnswer(input: string): Promise<AnswerFeedback | null> {
     const item = current.value
     if (!item || !userId.value) return null
-    const expected = item.word.trim().toLowerCase()
-    const isCorrect = input.trim().toLowerCase() === expected
     const isRetry = isRetryMode.value
 
     const result = await submitWriting({
-      userId: userId.value,
       wordSenseId: item.wordSenseId,
       inputAnswer: input,
-      isCorrect,
       isIndependent: true,
       attemptType: isRetry ? 'immediate_retry' : 'scheduled',
     })
+    const isCorrect = result.isCorrect
 
     if (isCorrect) {
       stats.value.correct += 1
-      if (item.isReview) stats.value.reviewed += 1
-      else stats.value.newWords += 1
+      if (phase.value === 'review' && item.isReview) stats.value.reviewed += 1
+      if (phase.value === 'writing' && !item.isReview) stats.value.newWords += 1
       if (result.mastered && !isRetry) stats.value.newlyMastered += 1
-      await completeMatchingTask(item)
+      if (
+        (phase.value === 'review' && item.isReview) ||
+        (phase.value === 'writing' && !item.isReview)
+      ) {
+        await completeMatchingTask(item)
+      }
     } else {
       stats.value.wrong += 1
     }
@@ -205,16 +207,20 @@ export const useLearningStore = defineStore('learning', () => {
 
   /** 完成当前词对应的每日任务（新词任务） */
   async function completeMatchingTask(item: StudyItem) {
+    const taskType = item.isReview ? 'review' : 'new'
     const task =
       dailyTasks.value.find(
-        (t) => t.wordSenseId === item.wordSenseId && t.taskStatus !== 'completed',
+        (t) =>
+          t.wordSenseId === item.wordSenseId &&
+          t.taskType === taskType &&
+          t.taskStatus !== 'completed',
       ) ??
       dailyTasks.value.find(
-        (t) => t.taskType === 'new' && t.taskStatus !== 'completed',
+        (t) => t.taskType === taskType && t.taskStatus !== 'completed',
       )
     if (!task) return
     try {
-      const result = await completeDailyTask(userId.value, task.id)
+      const result = await completeDailyTask(task.id)
       dailyTasks.value = result.tasks
     } catch {
       // 任务计数失败不影响学习主流程

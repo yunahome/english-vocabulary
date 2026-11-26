@@ -4,8 +4,7 @@
       "path": "pages/home/index",
       "style": {
         "navigationBarTitleText": "Home",
-        "navigationBarBackgroundColor": "#fffaf0",
-        "navigationBarTextStyle": "black",
+        "navigationStyle": "custom",
         "backgroundColor": "#fffaf0"
       }
     },
@@ -73,7 +72,7 @@
     }
   ],
   "tabBar": {
-    "custom": true,
+    "custom": false,
     "color": "#9c9ea7",
     "selectedColor": "#30ba6e",
     "backgroundColor": "#ffffff",

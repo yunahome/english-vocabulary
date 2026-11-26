@@ -16,22 +16,19 @@
 | 主按钮 | 全宽、绿色、`999rpx` 胶囊圆角 |
 | 字体 | 系统字体，标题 700~800 字重 |
 
-尺寸以 `750rpx` 设计稿为基准。学习流程页与 Vocabulary / Progress / Profile 使用 `navigationStyle: custom` 自绘导航栏，页面顶部按 `statusBarHeight` 留白，并给右上角微信胶囊按钮留出空间；Home 保留原生导航栏。
+尺寸以 `750rpx` 设计稿为基准。Home、学习流程页与 Vocabulary / Progress / Profile 使用 `navigationStyle: custom` 自绘导航栏，页面顶部按 `statusBarHeight` 留白，并给右上角微信胶囊按钮留出空间。
 
-## 底部 TabBar（自定义）
+## 底部 TabBar（原生）
 
-设计稿的 TabBar 是**白色圆角悬浮卡片**（不是通栏白底 + 顶部细线），原生 tabBar 无法实现，因此 `pages.json` 中 `tabBar.custom = true`，由原生自定义组件 `apps/miniapp/src/custom-tab-bar/` 渲染。
+使用微信小程序原生 `tabBar`，位置和安全区由微信容器控制，`pages.json` 保持 `tabBar.custom = false`。
 
 | 项 | 值 |
 | --- | --- |
-| 左右留白 | `16rpx`（露出页面 `#fffaf2` 背景） |
-| 距底部 | `12rpx + env(safe-area-inset-bottom)` |
-| 卡片 | 白色、高 `116rpx`、圆角 `40rpx`、`0 10rpx 28rpx rgba(31,45,36,.08)` 阴影 |
-| 图标 | 实心风格，`46rpx`；由 `scripts/gen-tab-icons.mjs` 生成（4x 超采样 + 降采样，带抗锯齿） |
+| 背景 | 白色 |
+| 选中色 | `#30ba6e` |
+| 未选中色 | `#9c9ea7` |
+| 图标 | 实心风格 81×81 PNG；由 `scripts/gen-tab-icons.mjs` 生成 |
 | 文字 | `26rpx`，未选中 `#9c9ea7` / 500，选中 `#30ba6e` / 700 |
-| 兜底 | 容器底部叠加透明→`#fffaf2` 渐变，遮住滚动到屏底的内容；容器 `pointer-events: none`，仅卡片可点 |
-
-四个 Tab 的高亮由 `getCurrentPages()` 推断，并在 `pageLifetimes.show` 时重新同步。Tab 页底部需预留约 `220rpx` 的 `padding-bottom`，避免内容被卡片遮挡。
 
 ## 页面清单
 

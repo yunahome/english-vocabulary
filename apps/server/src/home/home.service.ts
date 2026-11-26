@@ -1,6 +1,12 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
 import type { HomeSummaryDto } from '@englis-vocabulary/shared'
+import {
+  dateKeyInTimeZone,
+  hourInTimeZone,
+  parseDateKey,
+  resolveTimeZone,
+} from '../common/date-time'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -10,8 +16,16 @@ export class HomeService {
 
   /** 首页一次性聚合数据，避免多次请求 */
   async getSummary(userId: string): Promise<HomeSummaryDto> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { timezone: true },
+    })
+    if (!user) throw new NotFoundException('用户不存在')
+
     const now = new Date()
-    const today = new Date(`${now.toISOString().slice(0, 10)}T00:00:00.000Z`)
+    const timezone = resolveTimeZone(user.timezone)
+    const todayKey = dateKeyInTimeZone(now, timezone)
+    const today = parseDateKey(todayKey)
 
     // 掌握词数：status = mastered
     const masteredCount = await this.prisma.userWord.count({
@@ -62,6 +76,7 @@ export class HomeService {
     const reviewDueCount = await this.prisma.userWord.count({
       where: {
         userId,
+        status: { not: 'mastered' },
         OR: [
           { nextReviewAt: { lte: now } },
           { forgottenAt: { not: null } },
@@ -72,7 +87,7 @@ export class HomeService {
     // Day Streak：从今天（或昨天）往前数连续的 DailyLearning 记录
     const dayStreak = await this.calculateStreak(userId, today)
 
-    const hour = now.getHours()
+    const hour = hourInTimeZone(now, timezone)
     const greeting =
       hour < 12 ? 'Good morning!' : hour < 18 ? 'Good afternoon!' : 'Good evening!'
 
@@ -85,7 +100,7 @@ export class HomeService {
       reviewDueCount,
       newWordsLocked: reviewDueCount > 0,
       newWordsMinimum: 5,
-      date: today.toISOString().slice(0, 10),
+      date: todayKey,
     }
   }
 

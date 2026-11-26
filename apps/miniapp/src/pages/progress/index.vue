@@ -44,9 +44,9 @@ onMounted(async () => {
     const userId = await userStore.ensureUser()
     const [stageList, uStages, home, words] = await Promise.all([
       getStages(),
-      getUserStages(userId),
-      getHomeSummary(userId),
-      getUserWords(userId),
+      getUserStages(),
+      getHomeSummary(),
+      getUserWords(),
     ])
     stages.value = stageList
     userStages.value = uStages

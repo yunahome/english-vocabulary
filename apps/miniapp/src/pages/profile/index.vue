@@ -18,7 +18,7 @@ onMounted(async () => {
   try {
     const userId = await userStore.ensureUser()
     userIdShort.value = userId.slice(0, 8)
-    const [home, words] = await Promise.all([getHomeSummary(userId), getUserWords(userId)])
+    const [home, words] = await Promise.all([getHomeSummary(), getUserWords()])
     summary.value = home
     learnedCount.value = words.length
   } catch (err) {

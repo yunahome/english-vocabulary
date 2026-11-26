@@ -1,34 +1,76 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { createUser, initUserStages } from '@/api/home'
+import type { UserDto } from '@englis-vocabulary/shared'
+import { getCurrentUser, loginWithWechat } from '@/api/auth'
+import {
+  clearAuthToken,
+  getAuthToken,
+  setAuthToken,
+} from '@/utils/auth-storage'
 
-const USER_KEY = 'ev_user_id'
+function requestWechatCode(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    uni.login({
+      provider: 'weixin',
+      success: (result) => {
+        const code = (result as { code?: string }).code
+        if (code) resolve(code)
+        else reject(new Error('微信登录未返回 code'))
+      },
+      fail: (error) => reject(new Error(error.errMsg || '微信登录失败')),
+    })
+  })
+}
 
-/** 开发阶段的用户身份：本地持久化一个 dev openid 对应的用户。
- *  接入微信登录后，这里改为从 wx.login + 后端换 token 获取 userId。 */
+function getTimezone(): string {
+  try {
+    const system = uni.getSystemInfoSync() as { timezone?: string }
+    if (system.timezone) return system.timezone
+  } catch {
+    // fall through
+  }
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Shanghai'
+  } catch {
+    return 'Asia/Shanghai'
+  }
+}
+
 export const useUserStore = defineStore('user', () => {
   const userId = ref('')
+  const user = ref<UserDto | null>(null)
   const ready = ref(false)
 
   async function ensureUser() {
     if (ready.value && userId.value) return userId.value
-    const cached = uni.getStorageSync(USER_KEY) as string | undefined
-    if (cached) {
-      userId.value = cached
-      // 已缓存用户也补一次阶段初始化（幂等，防止旧数据缺进度）
-      await initUserStages(cached)
-      ready.value = true
-      return cached
+
+    const cachedToken = getAuthToken()
+    if (cachedToken) {
+      try {
+        user.value = await getCurrentUser()
+        userId.value = user.value.id
+        ready.value = true
+        return userId.value
+      } catch {
+        clearAuthToken()
+      }
     }
-    // 每个设备安装一个固定 dev openid，重复进入不会重复创建用户
-    const openid = `dev-${Date.now()}-${Math.floor(Math.random() * 10000)}`
-    const user = await createUser(openid, '学习者')
-    await initUserStages(user.id)
-    userId.value = user.id
-    uni.setStorageSync(USER_KEY, user.id)
+
+    const code = await requestWechatCode()
+    const session = await loginWithWechat(code, getTimezone())
+    setAuthToken(session.token)
+    user.value = session.user
+    userId.value = session.user.id
     ready.value = true
-    return user.id
+    return userId.value
   }
 
-  return { userId, ready, ensureUser }
+  function logout() {
+    clearAuthToken()
+    userId.value = ''
+    user.value = null
+    ready.value = false
+  }
+
+  return { userId, user, ready, ensureUser, logout }
 })

@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@englis-vocabulary/shared'
+import { clearAuthToken, getAuthToken } from '@/utils/auth-storage'
 
 type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
@@ -22,12 +23,14 @@ export function request<TResponse, TData = unknown>(
   options: RequestOptions<TData>,
 ): Promise<TResponse> {
   return new Promise((resolve, reject) => {
+    const token = getAuthToken()
     uni.request({
       url: `${getBaseUrl()}${options.url}`,
       method: options.method ?? 'GET',
       data: options.data as Record<string, unknown> | undefined,
       header: {
         'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       success: (res) => {
         const body = res.data as ApiResponse<TResponse> | undefined
@@ -38,6 +41,7 @@ export function request<TResponse, TData = unknown>(
           return
         }
 
+        if (res.statusCode === 401) clearAuthToken()
         reject(new Error(body?.message || `请求失败：HTTP ${res.statusCode}`))
       },
       fail: (error) => {

@@ -17,7 +17,7 @@ const tomorrowReview = computed(() => stats.value.reviewed + stats.value.newWord
 onMounted(async () => {
   const userId = await userStore.ensureUser()
   try {
-    summary.value = await getHomeSummary(userId)
+    summary.value = await getHomeSummary()
   } catch {
     summary.value = null
   }

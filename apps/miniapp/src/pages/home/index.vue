@@ -5,9 +5,11 @@ import type { HomeSummaryDto } from '@englis-vocabulary/shared'
 import { getHomeSummary } from '@/api/home'
 import { useUserStore } from '@/stores/user'
 import { useLearningStore } from '@/stores/learning'
+import { getNavMetrics } from '@/utils/nav'
 
 const userStore = useUserStore()
 const learningStore = useLearningStore()
+const nav = getNavMetrics()
 const summary = ref<HomeSummaryDto | null>(null)
 const loading = ref(true)
 const error = ref('')
@@ -17,7 +19,7 @@ async function load() {
   error.value = ''
   try {
     const userId = await userStore.ensureUser()
-    summary.value = await getHomeSummary(userId)
+    summary.value = await getHomeSummary()
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载失败'
   } finally {
@@ -37,40 +39,34 @@ async function startReview() {
 </script>
 
 <template>
-  <view class="page">
+  <view class="page" :style="{ paddingTop: nav.statusBarHeight + 33 + 'px' }">
     <view v-if="loading" class="state">加载中…</view>
     <view v-else-if="error" class="state error">{{ error }}</view>
 
     <block v-if="summary">
-      <!-- 顶部问候 -->
       <view class="header">
         <view class="header-left">
-          <text class="sun">☀️</text>
+          <image class="sun" src="/static/assets/home-icons/sun.png" mode="aspectFit" />
           <view class="header-text">
             <text class="greeting">{{ summary.greeting }}</text>
             <text class="subtitle">{{ summary.subtitle }}</text>
           </view>
         </view>
-        <view class="avatar">
-          <view class="avatar-head" />
-          <view class="avatar-body" />
-        </view>
+        <image class="avatar" src="/static/assets/home-icons/avatar.png" mode="aspectFit" />
       </view>
 
-      <!-- 吉祥物 banner（老鼠 + 气泡 + 星星 + 草地，直接取 UI 图素材） -->
-      <image class="mascot-banner" src="/static/assets/home-banner.jpg" mode="widthFix" />
+      <image class="mascot-banner" src="/static/assets/home-banner.jpg" mode="aspectFill" />
 
-      <!-- Day Streak / Words Mastered -->
       <view class="stats">
         <view class="stat-card">
-          <text class="stat-icon">🔥</text>
+          <image class="stat-icon" src="/static/assets/home-icons/fire.png" mode="aspectFit" />
           <view class="stat-meta">
             <text class="stat-label">Day Streak</text>
             <text class="stat-value">{{ summary.dayStreak }} days</text>
           </view>
         </view>
         <view class="stat-card">
-          <text class="stat-icon book-icon">📗</text>
+          <image class="stat-icon" src="/static/assets/home-icons/book.png" mode="aspectFit" />
           <view class="stat-meta">
             <text class="stat-label">Words Mastered</text>
             <text class="stat-value">{{ summary.masteredCount }}</text>
@@ -78,14 +74,13 @@ async function startReview() {
         </view>
       </view>
 
-      <!-- Current Stage -->
       <view v-if="summary.currentStage" class="stage-card">
         <view class="section-title">
-          <text class="trophy">🏆</text>
+          <image class="section-icon trophy" src="/static/assets/home-icons/trophy.png" mode="aspectFit" />
           <text>Current Stage</text>
         </view>
         <view class="stage-main">
-          <view class="stage-book">📗<text class="stage-star">★</text></view>
+          <image class="stage-book" src="/static/assets/home-icons/stage-book.png" mode="aspectFit" />
           <view class="stage-content">
             <view class="stage-row">
               <text class="stage-name">{{ summary.currentStage.name }}</text>
@@ -99,18 +94,16 @@ async function startReview() {
         </view>
       </view>
 
-      <!-- Today's Tasks -->
       <view class="tasks-title-row">
         <view class="section-title">
-          <text class="calendar">📅</text>
+          <image class="section-icon calendar" src="/static/assets/home-icons/calendar.png" mode="aspectFit" />
           <text>Today's Tasks</text>
         </view>
         <text class="today-label">Today</text>
       </view>
 
-      <!-- Review 卡 -->
       <view class="task-card">
-        <view class="task-icon review-icon">🔄</view>
+        <image class="task-icon" src="/static/assets/home-icons/review-cycle.png" mode="aspectFit" />
         <view class="task-body">
           <view class="task-top">
             <view class="task-name-wrap">
@@ -126,16 +119,20 @@ async function startReview() {
         </view>
       </view>
 
-      <!-- New Words 卡 -->
-      <view class="task-card">
-        <view class="task-icon new-icon">＋</view>
+      <view class="task-card new-task-card">
+        <image class="task-icon" src="/static/assets/home-icons/add-word.png" mode="aspectFit" />
         <view class="task-body">
           <view class="task-top">
             <view class="task-name-wrap">
               <text class="task-name">New Words</text>
               <text class="task-desc">Daily minimum: {{ summary.newWordsMinimum }}</text>
             </view>
-            <text v-if="summary.newWordsLocked" class="lock-badge">🔒 Locked</text>
+            <image
+              v-if="summary.newWordsLocked"
+              class="lock-badge"
+              src="/static/assets/home-icons/locked-badge.png"
+              mode="aspectFit"
+            />
           </view>
           <view class="progress slim">
             <view class="progress-fill" style="width: 0%" />
@@ -144,160 +141,416 @@ async function startReview() {
         </view>
       </view>
 
-      <!-- 开始复习按钮 -->
       <button class="primary-button" @tap="startReview">
         <text class="btn-main">Start Review</text>
         <text class="btn-sub">{{ summary.reviewDueCount }} words waiting for you</text>
       </button>
-
-      <!-- 底部草地装饰（对齐 UI 图） -->
-      <view class="grass">
-        <view class="hill hill-far-left" />
-        <view class="hill hill-left" />
-        <view class="hill hill-mid" />
-        <view class="hill hill-right" />
-        <view class="hill hill-far-right" />
-      </view>
     </block>
+
+    <view class="bottom-landscape">
+      <view class="land-left" />
+      <view class="land-right" />
+      <view class="land-front" />
+      <text class="sprout sprout-one">⌁</text>
+      <text class="sprout sprout-two">⌁</text>
+    </view>
+
   </view>
 </template>
 
 <style scoped>
 .page {
   min-height: 100vh;
-  padding: 0 24rpx 260rpx;
+  position: relative;
+  padding-right: 32rpx;
+  padding-left: 32rpx;
+  padding-bottom: 48rpx;
   background: #fffaf2;
   box-sizing: border-box;
   overflow-x: hidden;
 }
-.page view, .page image, .page button { box-sizing: border-box; }
-.page .stat-card, .page .stage-card, .page .task-card, .page .stage-content, .page .task-body, .page .task-name-wrap { min-width: 0; }
-.state { padding: 120rpx; text-align: center; color: #94a096; font-size: 28rpx; }
+.page view,
+.page image,
+.page button {
+  box-sizing: border-box;
+}
+.page .stat-card,
+.page .stage-card,
+.page .task-card,
+.page .stage-content,
+.page .task-body,
+.page .task-name-wrap {
+  min-width: 0;
+}
+.state {
+  padding: 120rpx 0;
+  text-align: center;
+  color: #94a096;
+  font-size: 28rpx;
+}
 .error { color: #e05a4f; }
 
-/* 顶部 */
 .header {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24rpx 8rpx 8rpx;
+  height: 88rpx;
+  padding-left: 4rpx;
 }
-.header-left { display: flex; align-items: center; min-width: 0; flex: 1; }
-.sun { font-size: 52rpx; margin-right: 12rpx; line-height: 1; }
-.header-text { display: flex; flex-direction: column; min-width: 0; }
-.greeting { font-size: 36rpx; font-weight: 700; color: #1f2d24; line-height: 1.15; }
-.subtitle { font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
+.header-left {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+.sun {
+  width: 84rpx;
+  height: 84rpx;
+  flex: 0 0 84rpx;
+  margin-right: 18rpx;
+}
+.header-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.greeting {
+  color: #1d241f;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.08;
+  letter-spacing: -0.5rpx;
+}
+.subtitle {
+  margin-top: 4rpx;
+  color: #7f8d85;
+  font-size: 25rpx;
+  line-height: 1.25;
+  white-space: nowrap;
+}
 .avatar {
-  width: 72rpx; height: 72rpx; border-radius: 50%;
-  background: #d8f0e2; display: flex; align-items: center;
-  justify-content: center; position: relative; overflow: hidden;
-}
-.avatar-head {
-  position: absolute; top: 16rpx; width: 24rpx; height: 24rpx;
-  border-radius: 50%; background: #5bb98b;
-}
-.avatar-body {
-  position: absolute; bottom: -14rpx; width: 48rpx; height: 42rpx;
-  border-radius: 50% 50% 0 0; background: #5bb98b;
+  width: 112rpx;
+  height: 112rpx;
+  flex: 0 0 112rpx;
 }
 
-/* banner */
 .mascot-banner {
-  width: 100%; max-width: 100%; display: block;
-  margin-top: 4rpx; height: 270rpx;
+  position: relative;
+  z-index: 1;
+  display: block;
+  width: calc(100% + 64rpx);
+  height: 306rpx;
+  margin-left: -32rpx;
 }
 
-/* 统计卡 */
-.stats { display: flex; gap: 18rpx; margin-top: 8rpx; }
+.stats {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 22rpx;
+  margin-top: 18rpx;
+}
 .stat-card {
-  flex: 1; display: flex; align-items: center; gap: 10rpx;
-  background: #fff; border-radius: 24rpx; padding: 18rpx 16rpx;
-  box-shadow: 0 6rpx 18rpx rgba(60, 80, 60, 0.06);
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-height: 140rpx;
+  padding: 18rpx 18rpx;
+  gap: 10rpx;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 22rpx rgba(48, 64, 53, 0.055);
   overflow: hidden;
 }
-.stat-icon { font-size: 40rpx; line-height: 1; flex-shrink: 0; }
-.stat-meta { display: flex; flex-direction: column; min-width: 0; }
-.stat-label { font-size: 20rpx; color: #94a096; overflow: hidden; text-overflow: ellipsis; }
-.stat-value { font-size: 40rpx; font-weight: 800; color: #1f2d24; margin-top: 4rpx; }
+.stat-icon {
+  width: 66rpx;
+  height: 66rpx;
+  flex: 0 0 66rpx;
+}
+.stat-meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.stat-label {
+  overflow: hidden;
+  color: #66746b;
+  font-size: 22rpx;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat-value {
+  margin-top: 4rpx;
+  color: #1d241f;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.5rpx;
+}
 
-/* 通用标题 */
 .section-title {
-  display: flex; align-items: center; gap: 8rpx;
-  font-size: 26rpx; font-weight: 700; color: #1f2d24;
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  color: #1d241f;
+  font-size: 31rpx;
+  font-weight: 800;
+  line-height: 1.2;
 }
-.trophy, .calendar { font-size: 26rpx; }
+.section-icon {
+  flex: 0 0 auto;
+}
+.trophy {
+  width: 52rpx;
+  height: 52rpx;
+}
+.calendar {
+  width: 52rpx;
+  height: 52rpx;
+}
 
-/* 阶段卡 */
 .stage-card {
-  background: #fff; border-radius: 28rpx; padding: 24rpx 26rpx;
-  margin-top: 22rpx; box-shadow: 0 6rpx 18rpx rgba(60, 80, 60, 0.06);
+  position: relative;
+  z-index: 1;
+  margin-top: 20rpx;
+  padding: 16rpx 24rpx 14rpx;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 22rpx rgba(48, 64, 53, 0.055);
 }
-.stage-main { display: flex; align-items: center; gap: 18rpx; margin-top: 18rpx; }
+.stage-main {
+  display: flex;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 8rpx;
+}
 .stage-book {
-  width: 76rpx; height: 88rpx; border-radius: 12rpx;
-  background: linear-gradient(135deg, #6cc38f, #3d9b6c);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 40rpx; position: relative; flex-shrink: 0;
+  width: 96rpx;
+  height: 86rpx;
+  flex: 0 0 96rpx;
 }
-.stage-star { position: absolute; font-size: 20rpx; color: #ffe08a; top: 10rpx; right: 8rpx; }
 .stage-content { flex: 1; }
-.stage-row { display: flex; justify-content: space-between; align-items: baseline; }
-.stage-name { font-size: 26rpx; font-weight: 600; color: #1f2d24; }
-.stage-count { font-size: 22rpx; color: #6b7a70; overflow: hidden; text-overflow: ellipsis; }
-.stage-desc { display: block; font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
+.stage-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12rpx;
+}
+.stage-name {
+  overflow: hidden;
+  color: #1d241f;
+  font-size: 31rpx;
+  font-weight: 700;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stage-count {
+  flex: 0 0 auto;
+  color: #344038;
+  font-size: 25rpx;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.stage-desc {
+  display: block;
+  margin-top: 2rpx;
+  color: #77867c;
+  font-size: 21rpx;
+  line-height: 1.2;
+}
 
 .progress {
-  height: 12rpx; background: #eaf0ea; border-radius: 12rpx;
-  margin-top: 12rpx; overflow: hidden;
+  height: 14rpx;
+  margin-top: 10rpx;
+  overflow: hidden;
+  border-radius: 14rpx;
+  background: #e9efea;
 }
-.progress.slim { height: 10rpx; margin-top: 12rpx; }
-.progress-fill { height: 100%; background: #3d9b6c; border-radius: 12rpx; }
+.progress.slim {
+  height: 12rpx;
+  margin-top: 8rpx;
+}
+.progress-fill {
+  height: 100%;
+  border-radius: 14rpx;
+  background: #3cbc7e;
+}
 
-/* 任务区 */
 .tasks-title-row {
-  display: flex; align-items: center; justify-content: space-between;
-  margin: 30rpx 4rpx 16rpx;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 26rpx 2rpx 14rpx;
 }
-.today-label { font-size: 22rpx; color: #94a096; }
+.today-label {
+  color: #77867c;
+  font-size: 23rpx;
+}
 .task-card {
-  background: #fff; border-radius: 28rpx; padding: 24rpx 26rpx;
-  margin-bottom: 18rpx; display: flex; gap: 20rpx;
-  box-shadow: 0 6rpx 18rpx rgba(60, 80, 60, 0.06);
+  position: relative;
+  z-index: 1;
+  display: flex;
+  min-height: 160rpx;
+  padding: 20rpx;
+  gap: 14rpx;
+  border-radius: 34rpx;
+  background: #fff;
+  box-shadow: 0 8rpx 22rpx rgba(48, 64, 53, 0.055);
+}
+.new-task-card {
+  min-height: 180rpx;
+  margin-top: 16rpx;
 }
 .task-icon {
-  width: 76rpx; height: 76rpx; border-radius: 50%; flex-shrink: 0;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 36rpx; font-weight: 700;
+  width: 120rpx;
+  height: 120rpx;
+  flex: 0 0 120rpx;
+  margin-top: 0;
 }
-.review-icon { background: #e6f4ea; color: #3d9b6c; }
-.new-icon { background: #fff0cf; color: #f0a500; font-size: 48rpx; }
-.task-body { flex: 1; }
-.task-top { display: flex; justify-content: space-between; align-items: flex-start; }
-.task-name-wrap { display: flex; flex-direction: column; }
-.task-name { font-size: 26rpx; font-weight: 700; color: #1f2d24; }
-.task-desc { font-size: 20rpx; color: #94a096; margin-top: 4rpx; }
-.task-number { font-size: 48rpx; font-weight: 800; color: #1f2d24; }
-.task-foot { display: block; font-size: 20rpx; color: #94a096; text-align: right; margin-top: 6rpx; }
+.task-body {
+  flex: 1;
+  min-width: 0;
+}
+.task-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10rpx;
+}
+.task-name-wrap {
+  display: flex;
+  flex-direction: column;
+}
+.task-name {
+  color: #1d241f;
+  font-size: 31rpx;
+  font-weight: 800;
+  line-height: 1.2;
+}
+.task-desc {
+  margin-top: 3rpx;
+  color: #77867c;
+  font-size: 23rpx;
+  line-height: 1.2;
+}
+.task-number {
+  color: #1d241f;
+  font-size: 50rpx;
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -1rpx;
+}
+.task-foot {
+  display: block;
+  margin-top: 4rpx;
+  color: #77867c;
+  font-size: 21rpx;
+  line-height: 1.2;
+  text-align: right;
+}
 .lock-badge {
-  font-size: 22rpx; color: #e09a2e; background: #fff3d8;
-  padding: 6rpx 16rpx; border-radius: 24rpx;
+  width: 132rpx;
+  height: 44rpx;
+  flex: 0 0 132rpx;
 }
 
-/* 主按钮 */
 .primary-button {
-  width: 100%; background: #3d9b6c; border-radius: 48rpx;
-  padding: 24rpx 0; margin-top: 14rpx; border: none;
-  display: flex; flex-direction: column; align-items: center;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  width: 84%;
+  height: 124rpx;
+  margin: 14rpx auto 0;
+  padding: 0;
+  border: none;
+  border-radius: 999rpx;
+  background: linear-gradient(180deg, #51c68c 0%, #3baa72 100%);
+  box-shadow: 0 12rpx 24rpx rgba(48, 159, 101, 0.1);
+  line-height: normal;
 }
-.btn-main { color: #fff; font-size: 32rpx; font-weight: 700; }
-.btn-sub { color: rgba(255, 255, 255, 0.9); font-size: 22rpx; margin-top: 6rpx; }
+.primary-button::after {
+  border: none;
+}
+.btn-main {
+  color: #fff;
+  font-size: 36rpx;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.btn-sub {
+  margin-top: 4rpx;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 24rpx;
+  font-weight: 600;
+  line-height: 1.1;
+}
 
-/* 底部草地 */
-.grass { position: relative; height: 130rpx; margin-top: -6rpx; overflow: hidden; }
-.hill { position: absolute; bottom: -70rpx; width: 300rpx; height: 170rpx; border-radius: 50%; }
-.hill-far-left { left: -150rpx; bottom: -90rpx; width: 260rpx; height: 150rpx; background: #e4f2d9; }
-.hill-left { left: -70rpx; background: #d3ebc6; }
-.hill-mid { left: 42%; bottom: -95rpx; width: 220rpx; height: 130rpx; background: #e0f0d3; }
-.hill-right { right: -80rpx; background: #cbe7bd; }
-.hill-far-right { right: -160rpx; bottom: -100rpx; width: 260rpx; height: 140rpx; background: #e6f3dc; }
+.bottom-landscape {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  height: 216rpx;
+  overflow: hidden;
+  pointer-events: none;
+}
+.land-left,
+.land-right,
+.land-front {
+  position: absolute;
+}
+.land-left {
+  bottom: -20rpx;
+  left: -54rpx;
+  width: 270rpx;
+  height: 180rpx;
+  border-radius: 58% 65% 50% 48%;
+  transform: rotate(5deg);
+  background: #d9edc9;
+}
+.land-right {
+  right: -66rpx;
+  bottom: -24rpx;
+  width: 284rpx;
+  height: 186rpx;
+  border-radius: 62% 52% 48% 60%;
+  transform: rotate(-4deg);
+  background: #d5ebc3;
+}
+.land-front {
+  bottom: -78rpx;
+  left: -100rpx;
+  width: 950rpx;
+  height: 180rpx;
+  border-radius: 50% 50% 0 0;
+  background: #eff7e8;
+}
+.sprout {
+  position: absolute;
+  color: #81bc69;
+  font-size: 40rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+.sprout-one {
+  top: 84rpx;
+  left: 126rpx;
+  transform: rotate(-18deg);
+}
+.sprout-two {
+  top: 76rpx;
+  right: 96rpx;
+  transform: rotate(17deg);
+}
+
 </style>

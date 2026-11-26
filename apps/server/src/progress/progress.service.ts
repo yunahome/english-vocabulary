@@ -1,5 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma.service'
+import {
+  dateKeyInTimeZone,
+  parseDateKey,
+  resolveTimeZone,
+} from '../common/date-time'
 import type {
   DailyTasksResultDto,
   UserLevelDto,
@@ -70,6 +75,32 @@ export class ProgressService {
       include: { stage: true },
     })
     if (!current) throw new NotFoundException('用户阶段进度不存在')
+    if (current.status !== 'unlocked') {
+      throw new BadRequestException('当前阶段尚未解锁')
+    }
+
+    const [requiredWords, masteredWords] = await Promise.all([
+      this.prisma.stageWord.findMany({
+        where: { stageId, isRequired: true },
+        select: { wordSenseId: true },
+      }),
+      this.prisma.userWord.findMany({
+        where: { userId, status: 'mastered' },
+        select: { wordSenseId: true },
+      }),
+    ])
+    if (requiredWords.length === 0) {
+      throw new BadRequestException('当前阶段没有配置必学词，不能解锁下一阶段')
+    }
+    const masteredIds = new Set(masteredWords.map((item) => item.wordSenseId))
+    const incompleteCount = requiredWords.filter(
+      (item) => !masteredIds.has(item.wordSenseId),
+    ).length
+    if (incompleteCount > 0) {
+      throw new BadRequestException(
+        `当前阶段还有 ${incompleteCount} 个必学词义未掌握，不能解锁下一阶段`,
+      )
+    }
 
     const next = await this.prisma.stage.findFirst({
       where: { sortOrder: { gt: current.stage.sortOrder } },
@@ -77,15 +108,21 @@ export class ProgressService {
     })
     if (!next) throw new NotFoundException('已是最后一个阶段')
 
-    const updated = await this.prisma.userStage.upsert({
-      where: { userId_stageId: { userId, stageId: next.id } },
-      create: {
-        userId,
-        stageId: next.id,
-        status: 'unlocked',
-        unlockedAt: new Date(),
-      },
-      update: { status: 'unlocked', unlockedAt: new Date() },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      await tx.userStage.update({
+        where: { id: current.id },
+        data: { status: 'completed', completedAt: new Date() },
+      })
+      return tx.userStage.upsert({
+        where: { userId_stageId: { userId, stageId: next.id } },
+        create: {
+          userId,
+          stageId: next.id,
+          status: 'unlocked',
+          unlockedAt: new Date(),
+        },
+        update: { status: 'unlocked', unlockedAt: new Date() },
+      })
     })
     return {
       id: updated.id,
@@ -143,8 +180,10 @@ export class ProgressService {
 
   /** 获取/生成当日任务。已存在则直接返回（唯一约束保证不重复生成） */
   async getDailyTasks(userId: string, dateStr?: string): Promise<DailyTasksResultDto> {
-    await this.ensureUser(userId)
-    const learningDate = this.parseDate(dateStr)
+    const user = await this.ensureUser(userId)
+    const learningDate = this.parseDate(
+      dateStr ?? dateKeyInTimeZone(new Date(), user.timezone),
+    )
 
     // 当日汇总：upsert 保证幂等
     const learning = await this.prisma.dailyLearning.upsert({
@@ -153,50 +192,88 @@ export class ProgressService {
       update: {},
     })
 
-    // 若当天还没有任务，按「当前阶段必学词义」生成最低 5 个新词任务。
-    // 不能简单取全局 WordSense 前 5 个，否则会把旧示例词混进当日任务，
-    // 导致课程词与每日任务对不上、任务计数无法同步。
-    const existingCount = await this.prisma.dailyTask.count({
-      where: { userId, learningDate },
+    const dueWords = await this.prisma.userWord.findMany({
+      where: {
+        userId,
+        status: { not: 'mastered' },
+        OR: [{ nextReviewAt: { lte: new Date() } }, { forgottenAt: { not: null } }],
+      },
+      orderBy: { nextReviewAt: 'asc' },
     })
-    if (existingCount === 0) {
-      const userStages = await this.prisma.userStage.findMany({
-        where: { userId },
-        include: { stage: true },
-        orderBy: { stage: { sortOrder: 'asc' } },
+    for (const [index, due] of dueWords.entries()) {
+      await this.prisma.dailyTask.upsert({
+        where: {
+          userId_learningDate_wordSenseId_taskType: {
+            userId,
+            learningDate,
+            wordSenseId: due.wordSenseId,
+            taskType: 'review',
+          },
+        },
+        create: {
+          userId,
+          learningDate,
+          wordSenseId: due.wordSenseId,
+          taskType: 'review',
+          sequence: index + 1,
+          taskStatus: 'pending',
+        },
+        update: {},
       })
-      const current = userStages.find((s) => s.status !== 'completed') ?? userStages[0]
+    }
 
-      let senseIds: string[] = []
-      if (current) {
-        const stageWords = await this.prisma.stageWord.findMany({
-          where: { stageId: current.stageId, isRequired: true },
-          orderBy: { sortOrder: 'asc' },
-          take: DAILY_MINIMUM_NEW_WORDS,
-        })
-        senseIds = stageWords.map((item) => item.wordSenseId)
-      }
-      // 当前阶段尚无课程数据时，退回全局词义，避免任务为空
-      if (senseIds.length === 0) {
-        const fallback = await this.prisma.wordSense.findMany({
-          orderBy: { sortOrder: 'asc' },
-          take: DAILY_MINIMUM_NEW_WORDS,
-        })
-        senseIds = fallback.map((item) => item.id)
-      }
+    const userStages = await this.prisma.userStage.findMany({
+      where: { userId },
+      include: { stage: true },
+      orderBy: { stage: { sortOrder: 'asc' } },
+    })
+    const current = userStages.find((s) => s.status !== 'completed') ?? userStages[0]
+    const learned = await this.prisma.userWord.findMany({
+      where: { userId },
+      select: { wordSenseId: true },
+    })
+    const learnedIds = new Set(learned.map((item) => item.wordSenseId))
 
-      for (const [index, wordSenseId] of senseIds.entries()) {
-        await this.prisma.dailyTask.create({
-          data: {
+    let senseIds: string[] = []
+    if (current) {
+      const stageWords = await this.prisma.stageWord.findMany({
+        where: { stageId: current.stageId, isRequired: true },
+        orderBy: { sortOrder: 'asc' },
+      })
+      senseIds = stageWords
+        .map((item) => item.wordSenseId)
+        .filter((id) => !learnedIds.has(id))
+        .slice(0, DAILY_MINIMUM_NEW_WORDS)
+    }
+    if (senseIds.length === 0) {
+      const fallback = await this.prisma.wordSense.findMany({
+        where: { id: { notIn: Array.from(learnedIds) } },
+        orderBy: { sortOrder: 'asc' },
+        take: DAILY_MINIMUM_NEW_WORDS,
+      })
+      senseIds = fallback.map((item) => item.id)
+    }
+
+    for (const [index, wordSenseId] of senseIds.entries()) {
+      await this.prisma.dailyTask.upsert({
+        where: {
+          userId_learningDate_wordSenseId_taskType: {
             userId,
             learningDate,
             wordSenseId,
             taskType: 'new',
-            sequence: index + 1,
-            taskStatus: 'pending',
           },
-        })
-      }
+        },
+        create: {
+          userId,
+          learningDate,
+          wordSenseId,
+          taskType: 'new',
+          sequence: dueWords.length + index + 1,
+          taskStatus: 'pending',
+        },
+        update: {},
+      })
     }
 
     const tasks = await this.prisma.dailyTask.findMany({
@@ -234,47 +311,78 @@ export class ProgressService {
     taskId: string,
     dateStr?: string,
   ): Promise<DailyTasksResultDto> {
+    await this.ensureUser(userId)
     const task = await this.prisma.dailyTask.findUnique({ where: { id: taskId } })
     if (!task || task.userId !== userId) throw new NotFoundException('任务不存在')
+
+    if (task.taskType === 'new') {
+      const pendingReviewCount = await this.prisma.dailyTask.count({
+        where: {
+          userId,
+          learningDate: task.learningDate,
+          taskType: 'review',
+          taskStatus: { not: 'completed' },
+        },
+      })
+      if (pendingReviewCount > 0) {
+        throw new BadRequestException('请先完成今日全部到期复习，再完成新词任务')
+      }
+    }
 
     await this.prisma.dailyTask.update({
       where: { id: taskId },
       data: { taskStatus: 'completed', completedAt: new Date() },
     })
 
-    const learningDate = this.parseDate(dateStr)
+    const learningDate = task.learningDate
     const learning = await this.prisma.dailyLearning.findUnique({
       where: { userId_learningDate: { userId, learningDate } },
     })
     if (learning) {
-      const completedCount = await this.prisma.dailyTask.count({
-        where: { userId, learningDate, taskStatus: 'completed' },
-      })
+      const [newWordCount, reviewWordCount] = await Promise.all([
+        this.prisma.dailyTask.count({
+          where: {
+            userId,
+            learningDate,
+            taskType: 'new',
+            taskStatus: 'completed',
+          },
+        }),
+        this.prisma.dailyTask.count({
+          where: {
+            userId,
+            learningDate,
+            taskType: 'review',
+            taskStatus: 'completed',
+          },
+        }),
+      ])
       await this.prisma.dailyLearning.update({
         where: { id: learning.id },
         data: {
-          newWordCount: task.taskType === 'new' ? completedCount : learning.newWordCount,
-          reviewWordCount:
-            task.taskType === 'review' ? completedCount : learning.reviewWordCount,
+          newWordCount,
+          reviewWordCount,
           isDailyMinimumCompleted:
-            task.taskType === 'new' && completedCount >= DAILY_MINIMUM_NEW_WORDS,
+            newWordCount >= DAILY_MINIMUM_NEW_WORDS,
         },
       })
     }
 
     // 重新读取最新状态
-    return this.getDailyTasks(userId, dateStr)
+    return this.getDailyTasks(userId, learningDate.toISOString().slice(0, 10))
   }
 
   private parseDate(dateStr?: string): Date {
-    const value = dateStr ?? new Date().toISOString().slice(0, 10)
-    const date = new Date(`${value}T00:00:00.000Z`)
-    if (Number.isNaN(date.getTime())) throw new NotFoundException('日期格式无效，应为 YYYY-MM-DD')
-    return date
+    try {
+      return parseDateKey(dateStr ?? dateKeyInTimeZone(new Date(), 'Asia/Shanghai'))
+    } catch {
+      throw new BadRequestException('日期格式无效，应为 YYYY-MM-DD')
+    }
   }
 
-  private async ensureUser(userId: string): Promise<void> {
+  private async ensureUser(userId: string): Promise<{ timezone: string }> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } })
     if (!user) throw new NotFoundException('用户不存在，请先创建用户')
+    return { timezone: resolveTimeZone(user.timezone) }
   }
 }

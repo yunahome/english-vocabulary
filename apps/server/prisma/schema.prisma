@@ -30,6 +30,7 @@ model User {
   id        String   @id @default(uuid())
   openid    String?  @unique
   nickname  String?
+  timezone  String   @default("Asia/Shanghai")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
