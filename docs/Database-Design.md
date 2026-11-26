@@ -38,9 +38,10 @@
 `pnpm db:seed`（幂等）会写入：
 
 - 5 个 Stage；
-- Elementary → Unit 1 → Level 1；
-- 100 个基础词（`seed.ts` + `lesson-words-extra.ts`），Unit 1 / Level 1；
-- 墨典小学英语 PDF 词表 1532 词（`pdf-words.json`），按每 100 词一个 Unit 排到 Unit 2~17；
+- Elementary → Unit 1 → Level 1~16；
+- 100 个基础词（`seed.ts` + `lesson-words-extra.ts`）在 Level 1；
+- 墨典小学英语 PDF 词表 1532 词（`pdf-words.json`），追加到 Unit 1 的 Level 2~16；
+- Elementary 共 1 个 Unit / 16 个 Level / 1448 个必学词义；
 - 每个词含音标、中文释义、词性，关联到 `LevelWord` 与 `StageWord`；
 - 每个词通过 `LevelWord` 关联到 Level 1、通过 `StageWord` 标记为 Elementary 必学。
 

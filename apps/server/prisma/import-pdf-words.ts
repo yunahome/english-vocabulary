@@ -1,6 +1,6 @@
 /**
  * 导入墨典小学英语 PDF 词表（1532 词）到 Elementary 阶段。
- * 每 100 词一个 Unit + Level，追加在现有 Unit 1 之后（Unit 2~16）。
+ * 所有词追加到现有 Unit 1，每 100 词一个 Level（Level 2~16）。
  * 幂等：单词/词义/关卡关联均按唯一键 upsert，可重复执行。
  *
  * 用法：pnpm --filter @englis-vocabulary/server prisma:import-pdf
@@ -29,28 +29,32 @@ async function main() {
     where: { code: 'ELEMENTARY' },
   })
 
-  // 幂等保护：若首个待导入词已存在于某个 Unit 的 Level 中，说明已经导入过，直接退出
+  // 使用现有 Unit 1，PDF 词作为 Level 2 起追加
+  const unit = await prisma.unit.findUniqueOrThrow({
+    where: { stageId_sortOrder: { stageId: elementary.id, sortOrder: 1 } },
+  })
+
+  // 幂等保护：若首个待导入词已存在于 Unit 1 的 Level 2+ 中，说明导入过，直接退出
   const firstWordSense = await prisma.wordSense.findFirst({
     where: { word: { word: words[0].word } },
     select: { id: true },
   })
   if (firstWordSense) {
     const alreadyImported = await prisma.levelWord.findFirst({
-      where: { wordSenseId: firstWordSense.id, level: { unit: { stageId: elementary.id, sortOrder: { gt: 1 } } } },
+      where: { wordSenseId: firstWordSense.id, level: { unitId: unit.id, sortOrder: { gte: 2 } } },
     })
     if (alreadyImported) {
-      console.log('检测到 PDF 词表已导入（首词已关联到 Unit 1 之外的关卡），跳过重复导入。')
+      console.log('检测到 PDF 词表已导入（首词已关联到 Unit 1 的 Level 2+），跳过重复导入。')
       console.log('如需重新导入，请先删除对应的 Unit 与关卡关联。')
       return
     }
   }
 
-  // 现有 Unit 1 已占用 sortOrder=1，从这里往后排
-  const maxUnit = await prisma.unit.aggregate({
-    where: { stageId: elementary.id },
+  const maxLevel = await prisma.level.aggregate({
+    where: { unitId: unit.id },
     _max: { sortOrder: true },
   })
-  let unitOrder = (maxUnit._max.sortOrder ?? 0) + 1
+  let levelOrder = (maxLevel._max.sortOrder ?? 0) + 1
 
   let created = 0
   let skipped = 0
@@ -59,14 +63,9 @@ async function main() {
     const batch = words.slice(offset, offset + WORDS_PER_LEVEL)
     const levelNo = Math.floor(offset / WORDS_PER_LEVEL) + 1
 
-    const unit = await prisma.unit.upsert({
-      where: { stageId_sortOrder: { stageId: elementary.id, sortOrder: unitOrder } },
-      create: { stageId: elementary.id, name: `Unit ${unitOrder}`, sortOrder: unitOrder },
-      update: {},
-    })
     const level = await prisma.level.upsert({
-      where: { unitId_sortOrder: { unitId: unit.id, sortOrder: 1 } },
-      create: { unitId: unit.id, name: `Level ${levelNo}`, sortOrder: 1, isActive: true },
+      where: { unitId_sortOrder: { unitId: unit.id, sortOrder: levelOrder } },
+      create: { unitId: unit.id, name: `Level ${levelOrder}`, sortOrder: levelOrder, isActive: true },
       update: { isActive: true },
     })
 
@@ -120,8 +119,8 @@ async function main() {
       created++
       if (position % 250 === 0) console.log(`  已处理 ${position}/${words.length}`)
     }
-    console.log(`Unit ${unitOrder} / Level ${levelNo}：${batch.length} 词（${batch[0].word} … ${batch[batch.length - 1].word}）`)
-    unitOrder++
+    console.log(`Unit 1 / Level ${levelOrder}：${batch.length} 词（${batch[0].word} … ${batch[batch.length - 1].word}）`)
+    levelOrder++
   }
 
   const totalSenses = await prisma.stageWord.count({ where: { stageId: elementary.id } })

@@ -5,7 +5,7 @@
 > 本地目录：`/Users/yktc/Documents/english-vocabulary`
 > Git 远程：`https://github.com/yunahome/english-vocabulary.git`（`main` 分支）
 
-当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 学习断点恢复已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重、学习断点恢复均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现。**课程词库共 1540 词**（100 个基础词 + 1532 个墨典小学英语 PDF 词，去重后），Elementary 阶段 17 个 Unit，每 100 词一关。补掌握模式待完善，发音音频与云端部署属于后续阶段。
+当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 学习断点恢复已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重、学习断点恢复均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现。**课程词库共 1448 个必学词义**（100 个基础词 + 1532 个墨典 PDF 词，去重后），Elementary 阶段 1 个 Unit、16 个 Level，每关约 90 词。补掌握模式待完善，发音音频与云端部署属于后续阶段。
 
 完整产品需求见根目录 `prd.md`（V1.2），UI 设计稿对应 `docs/UI-Specification.md`。
 
@@ -161,7 +161,7 @@ pnpm db:up
 # 4. 建表 + 写入课程数据（首次）
 pnpm db:migrate
 pnpm db:seed              # 5 阶段 + 100 基础词
-pnpm db:import-pdf        # 墨典小学英语 1532 词（幂等，生成 16 个 Unit）
+pnpm db:import-pdf        # 墨典小学英语 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
 
 # 5. 一条命令同时启动后端（:3000）与小程序 watch
 pnpm dev
@@ -181,7 +181,7 @@ PGlite 在 `database/.pglite/` 保存数据，通过 PostgreSQL 协议暴露 543
 ```bash
 # 终端 1：首次启动（自动建表 + 写入课程数据）
 pnpm db:local:init
-pnpm db:import-pdf        # 可选：导入墨典 1532 词
+pnpm db:import-pdf        # 可选：导入墨典 1532 词到 Unit 1 后续关卡
 
 # 终端 2：启动前后端
 pnpm dev
@@ -206,7 +206,7 @@ docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 # 健康检查 → {"code":0,"data":{"status":"ok",...},"message":"ok"}
 curl http://localhost:3000/api/health
 
-# 课程树 → 5 个阶段，Elementary 下 17 个 Unit（Unit 1 基础词 + Unit 2~17 墨典词）
+# 课程树 → 5 个阶段，Elementary 下 1 个 Unit / 16 个 Level
 curl http://localhost:3000/api/catalog/stages
 
 # 关卡词汇 → 该关卡的全部单词（含音标、词义、词性）
@@ -253,7 +253,7 @@ pnpm db:generate    # 重新生成 Prisma Client
 pnpm db:migrate     # 开发期迁移并生成 migration
 pnpm db:deploy      # 应用现有 migration（生产环境，非交互式）
 pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
-pnpm db:import-pdf  # 导入墨典 1532 词（幂等，依赖 pdf-words.json）
+pnpm db:import-pdf  # 导入墨典 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
 ```
 
