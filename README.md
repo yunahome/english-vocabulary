@@ -61,8 +61,11 @@ english-vocabulary/
 │       ├── prisma/
 │       │   ├── schema.prisma         # 17 张业务表
 │       │   ├── migrations/           # 迁移 SQL
-│       │   ├── seed.ts               # 5 阶段 + 课程词写入（幂等）
-│       │   └── lesson-words-extra.ts # 扩展词表 80 个（合计 100）
+│       │   ├── seed.ts               # 5 阶段 + 100 基础词写入（幂等）
+│       │   ├── lesson-words-extra.ts # 扩展词表 80 个
+│       │   ├── pdf-words.json        # 墨典小学英语 1532 词（清洗后）
+│       │   ├── import-pdf-words.ts   # PDF 词表导入（幂等）
+│       │   └── import-pdf-words.py   # PDF 提取文本 → JSON 的清洗脚本
 │       └── src/
 │           ├── main.ts               # 全局前缀、CORS、校验、拦截器、过滤器
 │           ├── app.module.ts

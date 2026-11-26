@@ -39,7 +39,9 @@
 
 - 5 个 Stage；
 - Elementary → Unit 1 → Level 1；
-- 100 个课程词（前 20 个在 `seed.ts`，后 80 个在 `lesson-words-extra.ts`），每个含音标、中文释义、英文释义、例句与例句翻译；
+- 100 个基础词（`seed.ts` + `lesson-words-extra.ts`），Unit 1 / Level 1；
+- 墨典小学英语 PDF 词表 1532 词（`pdf-words.json`），按每 100 词一个 Unit 排到 Unit 2~17；
+- 每个词含音标、中文释义、词性，关联到 `LevelWord` 与 `StageWord`；
 - 每个词通过 `LevelWord` 关联到 Level 1、通过 `StageWord` 标记为 Elementary 必学。
 
 图片 `imageUrl` 目前是 emoji 占位（小程序端会映射为从 UI 图裁出的本地素材），`pronunciationUrl` 为空。替换 `apps/server/prisma/seed.ts` 后重跑 seed 即可生效。

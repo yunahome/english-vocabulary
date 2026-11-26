@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate --schema prisma/schema.prisma",
     "prisma:migrate": "prisma migrate dev --schema prisma/schema.prisma",
     "prisma:deploy": "prisma migrate deploy --schema prisma/schema.prisma",
-    "prisma:seed": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/seed.ts"
+    "prisma:seed": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/seed.ts",
+    "prisma:import-pdf": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/import-pdf-words.ts"
   },
   "dependencies": {
     "@englis-vocabulary/shared": "workspace:*",
