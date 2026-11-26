@@ -172,6 +172,7 @@ pnpm dev
 小程序工程输出目录：**`apps/miniapp/dist/dev/mp-weixin`**（开发调试用这个，改 `.vue` 会自动重编译并刷新模拟器）。`dist/build/mp-weixin` 是一次性生产构建，改源码不会自动更新。
 
 > 提醒：端口 3000 同一时间只能有一个后端。`pnpm dev` 已包含后端，不要再另开终端执行 `pnpm dev:server`，否则报 `EADDRINUSE`。
+> `apps/server/nest-cli.json` 的 `deleteOutDir` 设为 `false`：watch 模式不再清空 `dist`，避免受限环境下批量删除被拦截导致后端起不来。如需彻底清理 `dist`，手动删除后再跑 `pnpm build`。
 > 页面结构变化后（新增了 4 个流程页），微信开发者工具需要**重新导入**产物目录才能看到新页面。
 
 ## 无 Docker 开发（备选）
