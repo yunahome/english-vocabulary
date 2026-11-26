@@ -18,6 +18,21 @@
 
 尺寸以 `750rpx` 设计稿为基准。学习流程页与 Vocabulary / Progress / Profile 使用 `navigationStyle: custom` 自绘导航栏，页面顶部按 `statusBarHeight` 留白，并给右上角微信胶囊按钮留出空间；Home 保留原生导航栏。
 
+## 底部 TabBar（自定义）
+
+设计稿的 TabBar 是**白色圆角悬浮卡片**（不是通栏白底 + 顶部细线），原生 tabBar 无法实现，因此 `pages.json` 中 `tabBar.custom = true`，由原生自定义组件 `apps/miniapp/src/custom-tab-bar/` 渲染。
+
+| 项 | 值 |
+| --- | --- |
+| 左右留白 | `16rpx`（露出页面 `#fffaf2` 背景） |
+| 距底部 | `12rpx + env(safe-area-inset-bottom)` |
+| 卡片 | 白色、高 `116rpx`、圆角 `40rpx`、`0 10rpx 28rpx rgba(31,45,36,.08)` 阴影 |
+| 图标 | 实心风格，`46rpx`；由 `scripts/gen-tab-icons.mjs` 生成（4x 超采样 + 降采样，带抗锯齿） |
+| 文字 | `26rpx`，未选中 `#9c9ea7` / 500，选中 `#30ba6e` / 700 |
+| 兜底 | 容器底部叠加透明→`#fffaf2` 渐变，遮住滚动到屏底的内容；容器 `pointer-events: none`，仅卡片可点 |
+
+四个 Tab 的高亮由 `getCurrentPages()` 推断，并在 `pageLifetimes.show` 时重新同步。Tab 页底部需预留约 `220rpx` 的 `padding-bottom`，避免内容被卡片遮挡。
+
 ## 页面清单
 
 ### 1. Home（Tab）
@@ -38,7 +53,7 @@
 顶部庆祝插画（彩带 + 老鼠 + Great Job 缎带）；New Words / Reviewed / New Mastered 三卡；Your Progress 与 Tomorrow's Preview 两栏；`Back to Home` 主按钮。明日数据为动态预估值。
 
 ### 6. Vocabulary（Tab）
-自定义导航（‹ / Vocabulary / 🔍）；可展开搜索框；All / Learning / Review Due / Mastered 筛选胶囊；词卡（小图 + 单词 + 音标 + 状态徽章 + 下次复习/到期文案 + ›）；点击弹出详情，已掌握词提供 `I Forgot This Word`。
+自定义导航（Vocabulary / 🔍，顶级 Tab 页无返回箭头）；可展开搜索框；All / Learning / Review Due / Mastered 筛选胶囊；词卡（小图 + 单词 + 音标 + 状态徽章 + 下次复习/到期文案 + ›）；点击弹出详情，已掌握词提供 `I Forgot This Word`。
 
 ### 7. Progress（Tab）
 当前阶段渐变绿卡（阶段名、进度、`x / y words mastered`）；Mastered / Learning / Day Streak 三格统计；五阶段解锁路径（当前阶段高亮，其余锁定/完成态）。
@@ -61,7 +76,7 @@
 | `writing-mascot.jpg` | Writing 页底部老鼠抱铅笔 + 气泡 |
 | `result-header.jpg` | Daily Result 顶部彩带 + 老鼠 + 缎带 |
 
-`static/tab-*.png` 为 8 个 Tab 图标（由 `scripts/gen-tab-icons.mjs` 生成）。
+`static/tab-*.png` 为 8 个 Tab 图标（实心风格，由 `scripts/gen-tab-icons.mjs` 生成：4x 超采样绘制后降采样，边缘抗锯齿）。
 
 ## 已知差异与后续替换
 

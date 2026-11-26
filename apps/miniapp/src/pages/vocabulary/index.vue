@@ -154,15 +154,12 @@ function onSearchInput(e: Event) {
   keyword.value = detail?.value ?? ''
 }
 
-function backHome() {
-  uni.switchTab({ url: '/pages/home/index' })
-}
 </script>
 
 <template>
   <view class="page">
     <view class="nav" :style="{ paddingTop: nav.statusBarHeight + 'px', paddingRight: nav.rightPadding + 'px' }">
-      <view class="nav-side" @tap="backHome"><text class="nav-icon">‹</text></view>
+      <view class="nav-side" />
       <text class="nav-title">Vocabulary</text>
       <view class="nav-side" @tap="showSearch = !showSearch"><text class="search-icon">🔍</text></view>
     </view>
@@ -237,7 +234,7 @@ function backHome() {
 <style scoped>
 .page {
   min-height: 100vh; background: #fffaf2; box-sizing: border-box;
-  padding: 0 40rpx 60rpx; overflow-x: hidden;
+  padding: 0 40rpx 220rpx; overflow-x: hidden;
 }
 .page view, .page image, .page button, .page input { box-sizing: border-box; }
 .nav {

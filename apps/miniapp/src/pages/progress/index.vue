@@ -38,9 +38,6 @@ const stageRows = computed(() =>
   }),
 )
 
-function goHome() {
-  uni.switchTab({ url: '/pages/home/index' })
-}
 
 onMounted(async () => {
   try {
@@ -66,7 +63,7 @@ onMounted(async () => {
 <template>
   <view class="page">
     <view class="nav" :style="{ paddingTop: nav.statusBarHeight + 'px', paddingRight: nav.rightPadding + 'px' }">
-      <view class="nav-side" @tap="goHome"><text class="nav-icon">‹</text></view>
+      <view class="nav-side" />
       <text class="nav-title">Progress</text>
       <view class="nav-side" />
     </view>
@@ -118,7 +115,7 @@ onMounted(async () => {
 <style scoped>
 .page {
   min-height: 100vh; background: #fffaf2; box-sizing: border-box;
-  padding: 0 40rpx 60rpx; overflow-x: hidden;
+  padding: 0 40rpx 220rpx; overflow-x: hidden;
 }
 .page view, .page image, .page button { box-sizing: border-box; }
 .nav {

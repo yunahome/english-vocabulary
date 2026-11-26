@@ -28,9 +28,6 @@ onMounted(async () => {
   }
 })
 
-function goHome() {
-  uni.switchTab({ url: '/pages/home/index' })
-}
 function notReady() {
   uni.showToast({ title: '该设置将在后续版本开放', icon: 'none' })
 }
@@ -39,7 +36,7 @@ function notReady() {
 <template>
   <view class="page">
     <view class="nav" :style="{ paddingTop: nav.statusBarHeight + 'px', paddingRight: nav.rightPadding + 'px' }">
-      <view class="nav-side" @tap="goHome"><text class="nav-icon">‹</text></view>
+      <view class="nav-side" />
       <text class="nav-title">Profile</text>
       <view class="nav-side" />
     </view>
@@ -104,7 +101,7 @@ function notReady() {
 <style scoped>
 .page {
   min-height: 100vh; background: #fffaf2; box-sizing: border-box;
-  padding: 0 40rpx 60rpx; overflow-x: hidden;
+  padding: 0 40rpx 220rpx; overflow-x: hidden;
 }
 .page view, .page image, .page button { box-sizing: border-box; }
 .nav {

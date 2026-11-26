@@ -50,8 +50,9 @@ english-vocabulary/
 │   │   │   │   └── index/            # 早期联调用的单词本页（保留）
 │   │   │   ├── static/
 │   │   │   │   ├── assets/           # 从 UI 设计稿裁出的插画/苹果/动物图
-│   │   │   │   └── tab-*.png         # 8 个 Tab 图标
-│   │   │   ├── pages.json            # 页面路由 + tabBar
+│   │   │   │   └── tab-*.png         # 8 个实心 Tab 图标
+│   │   │   ├── pages.json            # 页面路由 + tabBar（custom: true）
+│   │   │   ├── custom-tab-bar/       # 原生自定义 TabBar（白色圆角悬浮卡片）
 │   │   │   ├── manifest.json         # 微信 AppID 等原生配置
 │   │   │   └── uni.scss              # 全局样式变量
 │   │   └── dist/                     # 编译产物（gitignore）
