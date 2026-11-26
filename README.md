@@ -122,6 +122,8 @@ english-vocabulary/
 
 `stores/learning.ts` 把 Review → New Word → Writing → Daily Result 串成一次学习会话，并负责提交拼写、完成每日任务、统计汇总。没有到期复习词时，Review 页用关卡词做「首次独立拼写练习」，写入真实学习记录，7 天后自然进入复习队列。
 
+**底部 TabBar**：设计稿是白色圆角悬浮卡片，原生 tabBar 做不到，因此 `pages.json` 开启 `tabBar.custom = true`，由原生组件 `src/custom-tab-bar/`（js/json/wxml/wxss 四件套）渲染；图标为实心风格，由 `scripts/gen-tab-icons.mjs` 生成（4x 超采样 + 降采样抗锯齿）。若想临时退回原生 tabBar，把 `pages.json` 里 `"custom": true` 改为 `false` 并重新编译即可。
+
 **UI 素材**：`static/assets/` 下 11 张图片均从用户提供的 5 张 UI 设计稿裁出（首页 banner、苹果大图、4 张词库动物图、4 张页面老鼠插画、每日总结头部）。它们是位图，自带奶油色背景；发音 `pronunciationUrl` 目前为空，点扬声器会提示「发音素材待接入」。
 
 ### 共享类型
