@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { extraLessonWords } from './lesson-words-extra'
 
 const prisma = new PrismaClient()
 
@@ -263,6 +264,7 @@ const lessonWords = [
     exampleTranslation: '我的书在书包里。',
     emoji: '🎒',
   },
+  ...extraLessonWords,
 ]
 
 async function main() {

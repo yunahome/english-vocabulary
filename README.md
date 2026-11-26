@@ -61,7 +61,8 @@ english-vocabulary/
 │       ├── prisma/
 │       │   ├── schema.prisma         # 17 张业务表
 │       │   ├── migrations/           # 迁移 SQL
-│       │   └── seed.ts               # 5 阶段 + Elementary Level 1 的 5 个词
+│       │   ├── seed.ts               # 5 阶段 + 课程词写入（幂等）
+│       │   └── lesson-words-extra.ts # 扩展词表 80 个（合计 100）
 │       └── src/
 │           ├── main.ts               # 全局前缀、CORS、校验、拦截器、过滤器
 │           ├── app.module.ts

@@ -39,7 +39,7 @@
 
 - 5 个 Stage；
 - Elementary → Unit 1 → Level 1；
-- 5 个课程词 `apple` / `banana` / `cat` / `dog` / `book`，每个含音标、中文释义、英文释义、例句与例句翻译；
+- 100 个课程词（前 20 个在 `seed.ts`，后 80 个在 `lesson-words-extra.ts`），每个含音标、中文释义、英文释义、例句与例句翻译；
 - 每个词通过 `LevelWord` 关联到 Level 1、通过 `StageWord` 标记为 Elementary 必学。
 
 图片 `imageUrl` 目前是 emoji 占位（小程序端会映射为从 UI 图裁出的本地素材），`pronunciationUrl` 为空。替换 `apps/server/prisma/seed.ts` 后重跑 seed 即可生效。
