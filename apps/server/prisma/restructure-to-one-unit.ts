@@ -21,8 +21,10 @@ async function main() {
     include: { levels: true },
   })
 
-  if (units.length === 1 && units[0].levels.length === TARGET_LEVELS) {
+  const force = process.argv.includes('--force')
+  if (!force && units.length === 1 && units[0].levels.length === TARGET_LEVELS) {
     console.log('课程结构已是 1 个 Unit + 16 个 Level，跳过迁移。')
+    console.log('如需强制重建（会清空并重新分配关卡词），加 --force 参数。')
     return
   }
   console.log(`迁移前：${units.length} 个 Unit`)
