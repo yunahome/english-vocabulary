@@ -45,6 +45,22 @@ export function getNavMetrics(): NavMetrics {
   }
 }
 
+/** 学习会话阶段 → 页面路径，用于断点恢复后跳回正确页面 */
+export const LEARNING_PAGE: Record<string, string> = {
+  review: '/pages/review/index',
+  new: '/pages/word-learning/index',
+  writing: '/pages/writing/index',
+  result: '/pages/daily-result/index',
+}
+
+/** 恢复断点后，如果当前页与阶段不匹配则重定向；返回是否已重定向 */
+export function redirectToPhase(phase: string, currentPage: string): boolean {
+  const target = LEARNING_PAGE[phase]
+  if (!target || target === currentPage) return false
+  uni.redirectTo({ url: target })
+  return true
+}
+
 /** 按单词名解析展示图片：优先用从 UI 图裁出的本地素材 */
 const WORD_IMAGES: Record<string, string> = {
   apple: '/static/assets/word-apple.jpg',

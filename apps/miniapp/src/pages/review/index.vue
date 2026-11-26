@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useLearningStore } from '@/stores/learning'
 import { useUserStore } from '@/stores/user'
-import { getNavMetrics, isLocalImage } from '@/utils/nav'
+import { getNavMetrics, isLocalImage, redirectToPhase } from '@/utils/nav'
 
 const learning = useLearningStore()
 const userStore = useUserStore()
@@ -22,12 +22,8 @@ const barPercent = computed(() =>
 onMounted(async () => {
   const userId = await userStore.ensureUser()
   const phase = await learning.startReview(userId)
-  // 无到期复习时直接进入新词学习；今日任务全完成时进入总结
-  if (phase === 'new') {
-    uni.redirectTo({ url: '/pages/word-learning/index' })
-  } else if (phase === 'result') {
-    uni.redirectTo({ url: '/pages/daily-result/index' })
-  }
+  // 无到期复习 / 恢复断点时跳到对应阶段页面；今日任务全完成时进入总结
+  redirectToPhase(phase, '/pages/review/index')
 })
 
 function onInput(e: Event) {
@@ -53,15 +49,12 @@ function onTryAgain() {
 
 async function onContinue() {
   const nextPhase = await learning.next()
-  if (nextPhase === 'new') {
-    uni.redirectTo({ url: '/pages/word-learning/index' })
-  } else if (nextPhase === 'result') {
-    uni.redirectTo({ url: '/pages/daily-result/index' })
-  }
+  redirectToPhase(nextPhase, '/pages/review/index')
 }
 
 function close() {
-  learning.reset()
+  // PRD 7.2：退出时保留断点，再从首页进入时继续
+  learning.exitAndSave()
   uni.switchTab({ url: '/pages/home/index' })
 }
 </script>

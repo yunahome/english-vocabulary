@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { TEN_WORD_PROMPT_INTERVAL, useLearningStore } from '@/stores/learning'
 import { useUserStore } from '@/stores/user'
-import { getNavMetrics } from '@/utils/nav'
+import { getNavMetrics, redirectToPhase } from '@/utils/nav'
 
 const learning = useLearningStore()
 const userStore = useUserStore()
@@ -26,9 +26,15 @@ const showEarlyFinish = computed(
 
 onMounted(async () => {
   const userId = await userStore.ensureUser()
-  // 直接打开本页时补一个可测的词，保证页面不空
-  if (learning.phase !== 'writing' || !learning.current) {
-    learning.userId = userId
+  // 直接打开本页（或热重启恢复）时先恢复断点，避免丢失当前词
+  if (learning.phase === 'idle') {
+    const phase = await learning.startReview(userId)
+    if (redirectToPhase(phase, '/pages/writing/index')) return
+  } else if (learning.phase !== 'writing') {
+    redirectToPhase(learning.phase, '/pages/writing/index')
+    return
+  }
+  if (!learning.current) {
     if (learning.newQueue.length === 0) await learning.enterNewWords()
     learning.learnCurrentWord()
   }
@@ -57,15 +63,13 @@ function onTryAgain() {
 
 function onContinue() {
   const nextPhase = learning.nextNewWord()
-  if (nextPhase === 'new') {
-    uni.redirectTo({ url: '/pages/word-learning/index' })
-  } else {
-    uni.redirectTo({ url: '/pages/daily-result/index' })
-  }
+  // 满 10 词时 nextNewWord 只打开弹窗、phase 仍是 writing，不要跳转
+  redirectToPhase(nextPhase, '/pages/writing/index')
 }
 
 function close() {
-  learning.reset()
+  // PRD 7.2：退出时保留断点，再从首页进入时继续
+  learning.exitAndSave()
   uni.switchTab({ url: '/pages/home/index' })
 }
 

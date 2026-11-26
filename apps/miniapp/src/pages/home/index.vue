@@ -32,7 +32,7 @@ onShow(load)
 
 async function startReview() {
   const userId = await userStore.ensureUser()
-  learningStore.reset()
+  // PRD 7.2：不清空会话，由 review 页恢复当天断点
   learningStore.userId = userId
   uni.navigateTo({ url: '/pages/review/index' })
 }

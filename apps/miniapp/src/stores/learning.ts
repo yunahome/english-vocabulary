@@ -7,7 +7,15 @@ import type {
 } from '@englis-vocabulary/shared'
 import { getCatalogWords } from '@/api/catalog'
 import { getDueReviews, submitWriting } from '@/api/learning'
-import { completeDailyTask, getDailyTasks } from '@/api/progress'
+import { completeDailyTask, getDailyTasks, saveLearningSession } from '@/api/progress'
+import {
+  clearLocalSession,
+  isResumableSession,
+  loadLocalSession,
+  pickNewerSession,
+  saveLocalSession,
+} from '@/utils/learning-session'
+import type { LearningSession } from '@/utils/learning-session'
 import { resolveWordHeroImage, resolveWordImage } from '@/utils/nav'
 
 export interface StudyItem {
@@ -49,6 +57,9 @@ export const useLearningStore = defineStore('learning', () => {
   const newQueue = ref<StudyItem[]>([])
   const newIndex = ref(0)
   const dailyTasks = ref<DailyTaskDto[]>([])
+  /** 服务端保存的当日会话快照（PRD 7.2） */
+  const remoteSessionRaw = ref<string | null>(null)
+  const sessionDate = ref('')
   const loading = ref(false)
   const error = ref('')
   const answer = ref('')
@@ -166,8 +177,91 @@ export const useLearningStore = defineStore('learning', () => {
     try {
       const result = await getDailyTasks()
       dailyTasks.value = result.tasks
+      sessionDate.value = result.date
+      remoteSessionRaw.value = result.learning.lastLearningPosition ?? null
     } catch {
       dailyTasks.value = []
+    }
+  }
+
+  /** 序列化当前学习位置：本地立即写，服务端异步同步（失败不影响学习） */
+  function persistSession(status = 'in_progress') {
+    if (!sessionDate.value || phase.value === 'idle' || phase.value === 'result') return
+    const snapshot: LearningSession = {
+      date: sessionDate.value,
+      phase: phase.value,
+      queue: queue.value,
+      index: index.value,
+      newQueue: newQueue.value,
+      newIndex: newIndex.value,
+      countedNewWordIds: countedNewWordIds.value,
+      pendingTenWordPrompt: pendingTenWordPrompt.value,
+      showTenWordModal: showTenWordModal.value,
+      stats: { ...stats.value },
+      answer: answer.value,
+      isRetryMode: isRetryMode.value,
+      feedback: feedback.value,
+      savedAt: new Date().toISOString(),
+    }
+    const raw = JSON.stringify(snapshot)
+    saveLocalSession(snapshot)
+    void saveLearningSession(raw, status).catch(() => {
+      /* 服务端同步失败时本地快照仍可用于恢复 */
+    })
+  }
+
+  /** PRD 7.2：恢复当日上次的学习位置。返回 null 表示无有效断点 */
+  async function restoreSession(id: string): Promise<LearningPhase | null> {
+    userId.value = id
+    await loadDailyTasks(id)
+    const picked = pickNewerSession(loadLocalSession(), remoteSessionRaw.value)
+    if (!isResumableSession(picked, sessionDate.value)) return null
+    const session = picked as LearningSession
+    if (
+      !Array.isArray(session.queue) ||
+      !Array.isArray(session.newQueue) ||
+      !Array.isArray(session.countedNewWordIds)
+    ) {
+      return null
+    }
+    queue.value = session.queue
+    index.value = Math.min(Math.max(session.index ?? 0, 0), Math.max(session.queue.length - 1, 0))
+    newQueue.value = session.newQueue
+    newIndex.value = Math.min(
+      Math.max(session.newIndex ?? 0, 0),
+      Math.max(session.newQueue.length - 1, 0),
+    )
+    countedNewWordIds.value = session.countedNewWordIds
+    pendingTenWordPrompt.value = Boolean(session.pendingTenWordPrompt)
+    showTenWordModal.value = Boolean(session.showTenWordModal)
+    stats.value = {
+      newWords: session.stats?.newWords ?? 0,
+      reviewed: session.stats?.reviewed ?? 0,
+      correct: session.stats?.correct ?? 0,
+      wrong: session.stats?.wrong ?? 0,
+      newlyMastered: session.stats?.newlyMastered ?? 0,
+    }
+    answer.value = session.answer ?? ''
+    isRetryMode.value = Boolean(session.isRetryMode)
+    feedback.value = session.feedback ?? null
+    phase.value = session.phase
+    return phase.value
+  }
+
+  /** 中途退出：保存当前断点，下次进入继续（PRD 7.2） */
+  function exitAndSave() {
+    persistSession()
+    phase.value = 'idle'
+  }
+
+  /** 结束/重置时清除断点（本地 + 服务端） */
+  function clearSession() {
+    clearLocalSession()
+    remoteSessionRaw.value = null
+    if (userId.value) {
+      void saveLearningSession('', 'completed').catch(() => {
+        /* 忽略 */
+      })
     }
   }
 
@@ -179,6 +273,9 @@ export const useLearningStore = defineStore('learning', () => {
     loading.value = true
     error.value = ''
     try {
+      // PRD 7.2：优先恢复当天的学习断点
+      const resumed = await restoreSession(id)
+      if (resumed) return resumed
       const dueItems = await buildDueItems(id)
       // PRD 6.1：没有到期复习时直接进入新词学习，不再拿关卡词重复练一遍
       if (dueItems.length === 0) return await enterNewWords()
@@ -188,7 +285,7 @@ export const useLearningStore = defineStore('learning', () => {
       answer.value = ''
       isRetryMode.value = false
       phase.value = 'review'
-      await loadDailyTasks(id)
+      persistSession()
       return phase.value
     } catch (err) {
       error.value = err instanceof Error ? err.message : '加载复习任务失败'
@@ -241,6 +338,7 @@ export const useLearningStore = defineStore('learning', () => {
 
     const value: AnswerFeedback = { correct: isCorrect, isRetry, expected: item.word, result }
     feedback.value = value
+    persistSession()
     return value
   }
 
@@ -271,6 +369,7 @@ export const useLearningStore = defineStore('learning', () => {
     isRetryMode.value = true
     answer.value = ''
     feedback.value = null
+    persistSession()
   }
 
   /** 当前题目结束，进入下一题；复习队列跑完后进入新词学习 */
@@ -280,6 +379,7 @@ export const useLearningStore = defineStore('learning', () => {
     isRetryMode.value = false
     if (index.value < queue.value.length - 1) {
       index.value += 1
+      persistSession()
       return phase.value
     }
     return await enterNewWords()
@@ -295,6 +395,7 @@ export const useLearningStore = defineStore('learning', () => {
       newQueue.value = items
       newIndex.value = 0
       phase.value = items.length > 0 ? 'new' : 'result'
+      persistSession()
       return phase.value
     } catch (err) {
       error.value = err instanceof Error ? err.message : '加载新词失败'
@@ -318,6 +419,7 @@ export const useLearningStore = defineStore('learning', () => {
     feedback.value = null
     isRetryMode.value = false
     phase.value = 'writing'
+    persistSession()
   }
 
   /** Writing 页一题结束：满 10 词先弹窗询问，否则继续下一词或进入总结 */
@@ -328,6 +430,7 @@ export const useLearningStore = defineStore('learning', () => {
     if (pendingTenWordPrompt.value) {
       pendingTenWordPrompt.value = false
       showTenWordModal.value = true
+      persistSession() // 弹窗等待态也要恢复（PRD 5.3）
       return phase.value // 暂留 Writing 页，等用户选择
     }
     if (newIndex.value < newQueue.value.length - 1) {
@@ -336,6 +439,7 @@ export const useLearningStore = defineStore('learning', () => {
     } else {
       phase.value = 'result'
     }
+    persistSession()
     return phase.value
   }
 
@@ -345,6 +449,7 @@ export const useLearningStore = defineStore('learning', () => {
     if (newIndex.value < newQueue.value.length - 1) {
       newIndex.value += 1
       phase.value = 'new'
+      persistSession()
       return phase.value
     }
     await loadDailyTasks(userId.value)
@@ -359,6 +464,7 @@ export const useLearningStore = defineStore('learning', () => {
     newQueue.value = more
     newIndex.value = 0
     phase.value = 'new'
+    persistSession()
     return phase.value
   }
 
@@ -367,6 +473,7 @@ export const useLearningStore = defineStore('learning', () => {
     showTenWordModal.value = false
     pendingTenWordPrompt.value = false
     phase.value = 'result'
+    clearSession()
     return phase.value
   }
 
@@ -387,6 +494,7 @@ export const useLearningStore = defineStore('learning', () => {
     pendingTenWordPrompt.value = false
     showTenWordModal.value = false
     stats.value = { newWords: 0, reviewed: 0, correct: 0, wrong: 0, newlyMastered: 0 }
+    clearSession()
   }
 
   return {
@@ -423,6 +531,10 @@ export const useLearningStore = defineStore('learning', () => {
     nextNewWord,
     continueLearning,
     finishForToday,
+    restoreSession,
+    persistSession,
+    clearSession,
+    exitAndSave,
     goResult,
     reset,
   }

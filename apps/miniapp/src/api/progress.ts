@@ -23,6 +23,18 @@ export function completeDailyTask(
   })
 }
 
+/** PRD 7.2：保存学习断点到服务端（跨设备恢复） */
+export function saveLearningSession(
+  session: string,
+  status = 'in_progress',
+): Promise<DailyTasksResultDto> {
+  return request<DailyTasksResultDto>({
+    url: '/progress/daily-tasks/session',
+    method: 'PUT',
+    data: { session, status },
+  })
+}
+
 export function getUserStages(): Promise<UserStageDto[]> {
   return request<UserStageDto[]>({
     url: '/progress/stages',

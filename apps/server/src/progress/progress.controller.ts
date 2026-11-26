@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common'
 import { ProgressService } from './progress.service'
 import { CurrentUserId } from '../auth/auth.decorators'
 
@@ -43,6 +43,15 @@ export class ProgressController {
     @Query('date') date?: string,
   ) {
     return this.progressService.getDailyTasks(userId, date)
+  }
+
+  /** PRD 7.2：保存当日学习断点（阶段/词/任务状态/10词弹窗等待态） */
+  @Put('daily-tasks/session')
+  saveSession(
+    @CurrentUserId() userId: string,
+    @Body() body: { session: string; status?: string; date?: string },
+  ) {
+    return this.progressService.saveSession(userId, body.session, body.status, body.date)
   }
 
   @Post('daily-tasks/:taskId/complete')

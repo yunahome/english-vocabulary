@@ -140,6 +140,9 @@ curl -X POST http://localhost:3000/api/learning/writing \
 ### GET /api/progress/daily-tasks?date=YYYY-MM-DD
 获取/生成当日任务。已有则直接返回；没有则按**当前解锁阶段的必学词义（`StageWord`，`isRequired=true`）**生成新词任务，覆盖全部未学必学词（PRD 5.4：每日新词无固定上限，5 个只是最低要求），不再取全局 `WordSense` 前 5 个，避免旧示例词混入当日任务。date 省略为今天。
 
+### PUT /api/progress/daily-tasks/session
+保存学习断点（PRD 7.2）。body：`{ session: string, status?: string, date?: string }`，`session` 为客户端序列化的位置快照（阶段/队列/当前词/索引/弹窗态/统计）。写入 `DailyLearning.lastLearningPosition` 与 `sessionStatus`，通过 `GET /api/progress/daily-tasks` 读回。传空字符串表示完成/清空。
+
 ### POST /api/progress/daily-tasks/:taskId/complete
 完成任务，并同步 DailyLearning 的计数与最低任务完成标记。存在未完成 review 任务时，完成 new 任务会返回 400。
 

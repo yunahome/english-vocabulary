@@ -2,7 +2,7 @@
 import { computed, onMounted } from 'vue'
 import { useLearningStore } from '@/stores/learning'
 import { useUserStore } from '@/stores/user'
-import { getNavMetrics, isLocalImage } from '@/utils/nav'
+import { getNavMetrics, isLocalImage, redirectToPhase } from '@/utils/nav'
 
 const learning = useLearningStore()
 const userStore = useUserStore()
@@ -26,8 +26,15 @@ const posChinese = computed(() => {
 
 onMounted(async () => {
   const userId = await userStore.ensureUser()
-  if (learning.phase !== 'new' || learning.newQueue.length === 0) {
-    learning.userId = userId
+  // 直接打开本页（或热重启恢复）时确保会话已恢复
+  if (learning.phase === 'idle') {
+    const phase = await learning.startReview(userId)
+    if (redirectToPhase(phase, '/pages/word-learning/index')) return
+  } else if (learning.phase !== 'new') {
+    redirectToPhase(learning.phase, '/pages/word-learning/index')
+    return
+  }
+  if (learning.phase === 'new' && learning.newQueue.length === 0) {
     await learning.enterNewWords()
   }
 })
@@ -49,7 +56,8 @@ function onLearned() {
 }
 
 function close() {
-  learning.reset()
+  // PRD 7.2：退出时保留断点，再从首页进入时继续
+  learning.exitAndSave()
   uni.switchTab({ url: '/pages/home/index' })
 }
 </script>

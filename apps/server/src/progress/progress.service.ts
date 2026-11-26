@@ -306,6 +306,30 @@ export class ProgressService {
     }
   }
 
+  /** PRD 7.2：保存学习断点。session 为客户端序列化的位置快照（含阶段/词/任务/弹窗态） */
+  async saveSession(
+    userId: string,
+    session: string,
+    status = 'in_progress',
+    dateStr?: string,
+  ): Promise<DailyTasksResultDto> {
+    const user = await this.ensureUser(userId)
+    const learningDate = this.parseDate(
+      dateStr ?? dateKeyInTimeZone(new Date(), user.timezone),
+    )
+    await this.prisma.dailyLearning.upsert({
+      where: { userId_learningDate: { userId, learningDate } },
+      create: {
+        userId,
+        learningDate,
+        sessionStatus: status,
+        lastLearningPosition: session,
+      },
+      update: { sessionStatus: status, lastLearningPosition: session },
+    })
+    return this.getDailyTasks(userId, learningDate.toISOString().slice(0, 10))
+  }
+
   /** 完成一个每日任务，并同步当日汇总计数 */
   async completeDailyTask(
     userId: string,
