@@ -254,6 +254,8 @@ pnpm db:migrate     # 开发期迁移并生成 migration
 pnpm db:deploy      # 应用现有 migration（生产环境，非交互式）
 pnpm test           # 后端单元测试（11 项）
 pnpm test:e2e       # 端到端功能测试（38 项，需后端已在 3000 端口运行）
+pnpm test           # 后端单元测试（11 项）
+pnpm test:e2e       # 端到端功能测试（38 项，需后端已在 3000 端口运行）
 pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
 pnpm db:import-pdf  # 导入墨典 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
@@ -262,6 +264,8 @@ pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
 H5 预览：`pnpm --filter @englis-vocabulary/miniapp dev:h5`（根 package.json 没有此脚本，需带 filter）。H5 的 `rpx` 换算与微信真机不同，只用于冒烟检查，**UI 还原度以微信开发者工具为准**。
 
 修改 Prisma Schema 后依次执行 `pnpm db:generate` 和 `pnpm db:migrate`。
+
+后端 `.env` 采用**向上查找**方式定位（`app.module.ts` 的 `findEnvFiles()`），无论从仓库根、`apps/server` 还是其它目录启动都能读到同一份密钥，不会因启动目录不同而静默回退到开发默认密钥。
 
 后端 `.env` 采用**向上查找**方式定位（`app.module.ts` 的 `findEnvFiles()`），无论从仓库根、`apps/server` 还是其它目录启动都能读到同一份密钥，不会因启动目录不同而静默回退到开发默认密钥。
 
