@@ -21,7 +21,13 @@ const barPercent = computed(() =>
 
 onMounted(async () => {
   const userId = await userStore.ensureUser()
-  await learning.startReview(userId)
+  const phase = await learning.startReview(userId)
+  // 无到期复习时直接进入新词学习；今日任务全完成时进入总结
+  if (phase === 'new') {
+    uni.redirectTo({ url: '/pages/word-learning/index' })
+  } else if (phase === 'result') {
+    uni.redirectTo({ url: '/pages/daily-result/index' })
+  }
 })
 
 function onInput(e: Event) {

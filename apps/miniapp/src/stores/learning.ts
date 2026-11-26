@@ -2,11 +2,10 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import type {
   DailyTaskDto,
-  LevelLearningItemDto,
   WordWithSensesDto,
   WritingResultDto,
 } from '@englis-vocabulary/shared'
-import { getCatalogWords, getLevelWords, getStages } from '@/api/catalog'
+import { getCatalogWords } from '@/api/catalog'
 import { getDueReviews, submitWriting } from '@/api/learning'
 import { completeDailyTask, getDailyTasks } from '@/api/progress'
 import { resolveWordHeroImage, resolveWordImage } from '@/utils/nav'
@@ -40,25 +39,6 @@ export interface AnswerFeedback {
   isRetry: boolean
   expected: string
   result: WritingResultDto
-}
-
-function fromLevelItem(item: LevelLearningItemDto): StudyItem {
-  return {
-    wordSenseId: item.id,
-    word: item.word,
-    phonetic: item.phonetic,
-    partOfSpeech: item.partOfSpeech,
-    definition: item.definition,
-    englishDefinition: item.englishDefinition,
-    example: item.example,
-    exampleTranslation: item.exampleTranslation,
-    pronunciationUrl: item.pronunciationUrl,
-    image: resolveWordImage(item.word, item.imageUrl),
-    heroImage: resolveWordHeroImage(item.word, item.imageUrl),
-    correctStreak: 0,
-    status: 'not_started',
-    isReview: false,
-  }
 }
 
 export const useLearningStore = defineStore('learning', () => {
@@ -139,25 +119,47 @@ export const useLearningStore = defineStore('learning', () => {
   }
 
   /** 按课程顺序收集关卡词；excludeIds 用于「继续学习」时跳过已学过的词 */
-  async function loadLevelItems(excludeIds: Set<string> = new Set()): Promise<StudyItem[]> {
-    const stages = await getStages()
-    const result: StudyItem[] = []
-    for (const stage of stages) {
-      for (const unit of stage.units ?? []) {
-        for (const level of unit.levels ?? []) {
-          const items = await getLevelWords(level.id)
-          for (const item of items) {
-            if (
-              !excludeIds.has(item.id) &&
-              !result.some((existing) => existing.wordSenseId === item.id)
-            ) {
-              result.push(fromLevelItem(item))
-            }
-          }
-        }
-      }
+  /** 按词义 ID 从课程词表反查学习项（用于只加载今日未完成的任务词） */
+  async function buildItemsByIds(ids: string[]): Promise<StudyItem[]> {
+    if (ids.length === 0) return []
+    const words = await getCatalogWords()
+    const lookup = new Map<
+      string,
+      { sense: WordWithSensesDto['senses'][number]; word: WordWithSensesDto }
+    >()
+    for (const word of words) {
+      for (const sense of word.senses) lookup.set(sense.id, { sense, word })
     }
-    return result
+    return ids
+      .map((id) => {
+        const found = lookup.get(id)
+        if (!found) return null
+        const { sense, word } = found
+        return {
+          wordSenseId: sense.id,
+          word: word.word,
+          phonetic: word.phonetic,
+          partOfSpeech: sense.partOfSpeech,
+          definition: sense.definition,
+          englishDefinition: sense.englishDefinition,
+          example: sense.example,
+          exampleTranslation: sense.exampleTranslation,
+          pronunciationUrl: word.pronunciationUrl,
+          image: resolveWordImage(word.word, word.imageUrl),
+          heroImage: resolveWordHeroImage(word.word, word.imageUrl),
+          correctStreak: 0,
+          status: 'not_started',
+          isReview: false,
+        } as StudyItem
+      })
+      .filter((item): item is StudyItem => item !== null)
+  }
+
+  /** 今日尚未完成的「新词」任务 ID：后端已排除历史学过与今日已完成的词 */
+  function pendingNewWordIds(): string[] {
+    return dailyTasks.value
+      .filter((task) => task.taskType === 'new' && task.taskStatus !== 'completed')
+      .map((task) => task.wordSenseId)
   }
 
   async function loadDailyTasks(id: string) {
@@ -171,23 +173,27 @@ export const useLearningStore = defineStore('learning', () => {
 
   /** 进入复习页：有到期复习就复习，否则用关卡词做「首次独立拼写练习」。
    *  首次练习同样写入 WritingRecord，7 天后自然进入复习队列，数据闭环成立。 */
-  async function startReview(id: string) {
-    if (phase.value === 'review' && queue.value.length > 0) return
+  async function startReview(id: string): Promise<LearningPhase> {
+    if (phase.value === 'review' && queue.value.length > 0) return phase.value
     userId.value = id
     loading.value = true
     error.value = ''
     try {
-      let items = await buildDueItems(id)
-      if (items.length === 0) items = await loadLevelItems()
-      queue.value = items
+      const dueItems = await buildDueItems(id)
+      // PRD 6.1：没有到期复习时直接进入新词学习，不再拿关卡词重复练一遍
+      if (dueItems.length === 0) return await enterNewWords()
+      queue.value = dueItems
       index.value = 0
       feedback.value = null
       answer.value = ''
       isRetryMode.value = false
       phase.value = 'review'
       await loadDailyTasks(id)
+      return phase.value
     } catch (err) {
       error.value = err instanceof Error ? err.message : '加载复习任务失败'
+      phase.value = 'result'
+      return phase.value
     } finally {
       loading.value = false
     }
@@ -283,7 +289,9 @@ export const useLearningStore = defineStore('learning', () => {
   async function enterNewWords(): Promise<LearningPhase> {
     loading.value = true
     try {
-      const items = await loadLevelItems()
+      await loadDailyTasks(userId.value)
+      // 后端每日任务已排除历史学过与今日已完成的词，只学今天还没通过的新词
+      const items = await buildItemsByIds(pendingNewWordIds())
       newQueue.value = items
       newIndex.value = 0
       phase.value = items.length > 0 ? 'new' : 'result'
@@ -339,7 +347,11 @@ export const useLearningStore = defineStore('learning', () => {
       phase.value = 'new'
       return phase.value
     }
-    const more = await loadLevelItems(new Set(countedNewWordIds.value))
+    await loadDailyTasks(userId.value)
+    const ids = pendingNewWordIds().filter(
+      (id) => !countedNewWordIds.value.includes(id),
+    )
+    const more = await buildItemsByIds(ids)
     if (more.length === 0) {
       phase.value = 'result'
       return phase.value
