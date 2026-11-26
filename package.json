@@ -20,7 +20,8 @@
     "db:generate": "pnpm --filter @englis-vocabulary/server prisma:generate",
     "db:migrate": "pnpm --filter @englis-vocabulary/server prisma:migrate",
     "db:deploy": "pnpm --filter @englis-vocabulary/server prisma:deploy",
-    "db:seed": "pnpm --filter @englis-vocabulary/server prisma:seed"
+    "db:seed": "pnpm --filter @englis-vocabulary/server prisma:seed",
+    "test:e2e": "python3 scripts/e2e-test.py"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.6.0",
