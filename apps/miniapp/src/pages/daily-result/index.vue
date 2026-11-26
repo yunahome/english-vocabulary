@@ -13,6 +13,9 @@ const summary = ref<HomeSummaryDto | null>(null)
 
 const stats = computed(() => learning.stats)
 const tomorrowReview = computed(() => stats.value.reviewed + stats.value.newWords)
+/** 阶段进度百分比（模板内避免内联可选链 + ??，编译后属性名会错位） */
+const stageProgress = computed(() => summary.value?.currentStage?.progressPercent ?? 0)
+const stageProgressStyle = computed(() => `width: ${stageProgress.value}%`)
 
 onMounted(async () => {
   const userId = await userStore.ensureUser()
@@ -64,7 +67,7 @@ function backHome() {
           {{ summary?.currentStage?.learnedWords ?? 0 }} / {{ summary?.currentStage?.totalWords ?? 0 }} words
         </text>
         <view class="bar">
-          <view class="bar-fill" :style="{ width: (summary?.currentStage?.progressPercent ?? 0) + '%' }" />
+          <view class="bar-fill" :style="stageProgressStyle" />
         </view>
       </view>
 

@@ -18,6 +18,10 @@ const loading = ref(true)
 const error = ref('')
 
 const currentStageId = computed(() => summary.value?.currentStage?.id ?? '')
+/** 模板内避免内联可选链 + ??（编译后属性名错位导致 width 失效） */
+const heroProgressStyle = computed(
+  () => `width: ${summary.value?.currentStage?.progressPercent ?? 0}%`,
+)
 const stageRows = computed(() =>
   stages.value.map((stage, i) => {
     const record = userStages.value.find((u) => u.stageId === stage.id)
@@ -81,7 +85,7 @@ onMounted(async () => {
         <text class="hero-name">{{ summary?.currentStage?.name || 'Elementary' }}</text>
         <text class="hero-sub">Stage {{ summary?.currentStage?.stageNumber ?? 1 }} of {{ summary?.currentStage?.totalStages ?? 5 }}</text>
         <view class="hero-bar">
-          <view class="hero-bar-fill" :style="{ width: (summary?.currentStage?.progressPercent ?? 0) + '%' }" />
+          <view class="hero-bar-fill" :style="heroProgressStyle" />
         </view>
         <text class="hero-count">
           {{ summary?.currentStage?.learnedWords ?? 0 }} / {{ summary?.currentStage?.totalWords ?? 0 }} words mastered
