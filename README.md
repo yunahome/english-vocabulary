@@ -5,7 +5,7 @@
 > 本地目录：`/Users/yktc/Documents/english-vocabulary`
 > Git 远程：`https://github.com/yunahome/english-vocabulary.git`（`main` 分支）
 
-当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 每 10 词学习询问已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现（含学习断点恢复）；补掌握模式待完善，发音音频与云端部署属于后续阶段。
+当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 学习断点恢复已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重、学习断点恢复均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现。**课程词库共 1540 词**（100 个基础词 + 1532 个墨典小学英语 PDF 词，去重后），Elementary 阶段 17 个 Unit，每 100 词一关。补掌握模式待完善，发音音频与云端部署属于后续阶段。
 
 完整产品需求见根目录 `prd.md`（V1.2），UI 设计稿对应 `docs/UI-Specification.md`。
 
@@ -160,7 +160,8 @@ pnpm db:up
 
 # 4. 建表 + 写入课程数据（首次）
 pnpm db:migrate
-pnpm db:seed
+pnpm db:seed              # 5 阶段 + 100 基础词
+pnpm db:import-pdf        # 墨典小学英语 1532 词（幂等，生成 16 个 Unit）
 
 # 5. 一条命令同时启动后端（:3000）与小程序 watch
 pnpm dev
@@ -180,6 +181,7 @@ PGlite 在 `database/.pglite/` 保存数据，通过 PostgreSQL 协议暴露 543
 ```bash
 # 终端 1：首次启动（自动建表 + 写入课程数据）
 pnpm db:local:init
+pnpm db:import-pdf        # 可选：导入墨典 1532 词
 
 # 终端 2：启动前后端
 pnpm dev
@@ -204,10 +206,10 @@ docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'
 # 健康检查 → {"code":0,"data":{"status":"ok",...},"message":"ok"}
 curl http://localhost:3000/api/health
 
-# 课程树 → 5 个阶段，Elementary 下有 Unit 1 / Level 1
+# 课程树 → 5 个阶段，Elementary 下 17 个 Unit（Unit 1 基础词 + Unit 2~17 墨典词）
 curl http://localhost:3000/api/catalog/stages
 
-# 关卡词汇 → apple / banana / cat / dog / book 的完整字段
+# 关卡词汇 → 该关卡的全部单词（含音标、词义、词性）
 curl http://localhost:3000/api/catalog/levels/<levelId>/words
 
 # 新增单词 → HTTP 201，验证写入链路（注意 -H 和 -d 前面的短横杠不能漏）
@@ -232,11 +234,12 @@ AppID 自动带出 `wx9ed13f9f8cbcf771`。勾选「不校验合法域名、web-v
 
 ## 体验完整学习闭环
 
-1. 首页点 **Start Review** → Review 页逐词独立拼写（首次进入无到期复习，用关卡 5 个词练习）。
+1. 首页点 **Start Review** → 无到期复习时直接进入新词学习；有到期复习则 Review 页逐词独立拼写。
 2. 答错会显示正确答案与音标，点 **Try Again** 独立重输；立即重试按 `immediate_retry` 提交，不计入有效掌握次数。
 3. 复习队列跑完 → **New Word** 页学习展示 → **I've Learned This Word** → **Writing** 页拼写测试。
-4. 全部完成 → **Daily Result** 每日总结 → **Back to Home**。
-5. 到 **Vocabulary** 页点开某个已掌握的词，可 **I Forgot This Word**，该词会重新进入复习队列；回首页再点 Start Review 即可走真正的复习流程。
+4. 每完成 10 个新词弹窗询问是否继续：**Continue Learning** 继续下一批，**Finish for Today** 结束学习。
+5. 全部完成 → **Daily Result** 每日总结 → **Back to Home**。中途退出会保存断点，下次进入自动恢复。
+6. 到 **Vocabulary** 页点开某个已掌握的词，可 **I Forgot This Word**，该词会重新进入复习队列；回首页再点 Start Review 即可走真正的复习流程。
 
 ## 常用命令
 
@@ -249,7 +252,8 @@ pnpm typecheck      # 前后端类型检查
 pnpm db:generate    # 重新生成 Prisma Client
 pnpm db:migrate     # 开发期迁移并生成 migration
 pnpm db:deploy      # 应用现有 migration（生产环境，非交互式）
-pnpm db:seed        # 写入课程数据（幂等）
+pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
+pnpm db:import-pdf  # 导入墨典 1532 词（幂等，依赖 pdf-words.json）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
 ```
 
