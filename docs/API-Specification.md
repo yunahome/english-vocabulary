@@ -138,7 +138,7 @@ curl -X POST http://localhost:3000/api/learning/writing \
 标记关卡完成，并解锁同一 Unit 的下一关。
 
 ### GET /api/progress/daily-tasks?date=YYYY-MM-DD
-获取/生成当日任务。已有则直接返回；没有则按**当前解锁阶段的必学词义（`StageWord`，`isRequired=true`）**生成最低 5 个新词任务（数据不足时按实际数量），不再取全局 `WordSense` 前 5 个，避免旧示例词混入当日任务。date 省略为今天。
+获取/生成当日任务。已有则直接返回；没有则按**当前解锁阶段的必学词义（`StageWord`，`isRequired=true`）**生成新词任务，覆盖全部未学必学词（PRD 5.4：每日新词无固定上限，5 个只是最低要求），不再取全局 `WordSense` 前 5 个，避免旧示例词混入当日任务。date 省略为今天。
 
 ### POST /api/progress/daily-tasks/:taskId/complete
 完成任务，并同步 DailyLearning 的计数与最低任务完成标记。存在未完成 review 任务时，完成 new 任务会返回 400。

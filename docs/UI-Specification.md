@@ -44,7 +44,7 @@
 自定义导航（‹ / New Word / `Word x of y` / ✕）；Learning Progress；大苹果图 + 星星；单词 + 发音按钮 + 音标；绿色 `noun · 名词` 胶囊；MEANING / Example / Remember 三张卡；底部老鼠抱苹果插画；`I've Learned This Word` 主按钮；脚注。
 
 ### 4. Writing（流程页）
-自定义导航（‹ / Writing / ✕）；进度数字与进度条；浅绿提示卡；大号中文词；输入框；Submit；正误反馈；底部老鼠抱铅笔插画。
+自定义导航（‹ / Writing / ✕）；进度数字与进度条；浅绿提示卡；大号中文词；输入框；Submit；正误反馈；底部老鼠抱铅笔插画。完成第 10/20/30... 个新词后弹出奶油色圆角询问框（`🎉 Great Job!` + `You've learned N new words today! Would you like to continue?` + 绿色 `Continue Learning` / 浅灰 `Finish for Today`）；完成 5~9 词时按钮下方提供 `Finish for Today` 文字入口。
 
 ### 5. Daily Result（流程页）
 顶部庆祝插画（彩带 + 老鼠 + Great Job 缎带）；New Words / Reviewed / New Mastered 三卡；Your Progress 与 Tomorrow's Preview 两栏；`Back to Home` 主按钮。明日数据为动态预估值。

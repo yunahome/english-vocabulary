@@ -32,6 +32,9 @@ export interface StudyItem {
 
 export type LearningPhase = 'idle' | 'review' | 'new' | 'writing' | 'result'
 
+/** PRD 5.2：每完成 10 个新词询问一次是否继续 */
+export const TEN_WORD_PROMPT_INTERVAL = 10
+
 export interface AnswerFeedback {
   correct: boolean
   isRetry: boolean
@@ -71,6 +74,11 @@ export const useLearningStore = defineStore('learning', () => {
   const answer = ref('')
   const feedback = ref<AnswerFeedback | null>(null)
   const isRetryMode = ref(false)
+  /** 已完成过的新词 ID，避免同一词重试时重复计入每日新词数 */
+  const countedNewWordIds = ref<string[]>([])
+  /** 完成第 10/20/30... 个新词后，等用户点 Continue 时弹出询问 */
+  const pendingTenWordPrompt = ref(false)
+  const showTenWordModal = ref(false)
   const stats = ref({
     newWords: 0,
     reviewed: 0,
@@ -130,12 +138,26 @@ export const useLearningStore = defineStore('learning', () => {
       .filter((item): item is StudyItem => item !== null)
   }
 
-  async function loadLevelItems(): Promise<StudyItem[]> {
+  /** 按课程顺序收集关卡词；excludeIds 用于「继续学习」时跳过已学过的词 */
+  async function loadLevelItems(excludeIds: Set<string> = new Set()): Promise<StudyItem[]> {
     const stages = await getStages()
-    const level = stages[0]?.units?.[0]?.levels?.[0]
-    if (!level) return []
-    const items = await getLevelWords(level.id)
-    return items.map(fromLevelItem)
+    const result: StudyItem[] = []
+    for (const stage of stages) {
+      for (const unit of stage.units ?? []) {
+        for (const level of unit.levels ?? []) {
+          const items = await getLevelWords(level.id)
+          for (const item of items) {
+            if (
+              !excludeIds.has(item.id) &&
+              !result.some((existing) => existing.wordSenseId === item.id)
+            ) {
+              result.push(fromLevelItem(item))
+            }
+          }
+        }
+      }
+    }
+    return result
   }
 
   async function loadDailyTasks(id: string) {
@@ -188,7 +210,18 @@ export const useLearningStore = defineStore('learning', () => {
     if (isCorrect) {
       stats.value.correct += 1
       if (phase.value === 'review' && item.isReview) stats.value.reviewed += 1
-      if (phase.value === 'writing' && !item.isReview) stats.value.newWords += 1
+      // PRD 5.3：同一个新词只计一次；答错后重试答对仍算首次完成该词
+      if (
+        phase.value === 'writing' &&
+        !item.isReview &&
+        !countedNewWordIds.value.includes(item.wordSenseId)
+      ) {
+        countedNewWordIds.value.push(item.wordSenseId)
+        stats.value.newWords += 1
+        if (stats.value.newWords % TEN_WORD_PROMPT_INTERVAL === 0) {
+          pendingTenWordPrompt.value = true
+        }
+      }
       if (result.mastered && !isRetry) stats.value.newlyMastered += 1
       if (
         (phase.value === 'review' && item.isReview) ||
@@ -279,11 +312,16 @@ export const useLearningStore = defineStore('learning', () => {
     phase.value = 'writing'
   }
 
-  /** Writing 页一题结束：还有新词就回到 New Word 页，否则进入每日总结 */
+  /** Writing 页一题结束：满 10 词先弹窗询问，否则继续下一词或进入总结 */
   function nextNewWord(): LearningPhase {
     answer.value = ''
     feedback.value = null
     isRetryMode.value = false
+    if (pendingTenWordPrompt.value) {
+      pendingTenWordPrompt.value = false
+      showTenWordModal.value = true
+      return phase.value // 暂留 Writing 页，等用户选择
+    }
     if (newIndex.value < newQueue.value.length - 1) {
       newIndex.value += 1
       phase.value = 'new'
@@ -293,8 +331,35 @@ export const useLearningStore = defineStore('learning', () => {
     return phase.value
   }
 
-  function goResult() {
+  /** 弹窗选 Continue Learning：继续下一个词；队列耗尽则加载后续课程词 */
+  async function continueLearning(): Promise<LearningPhase> {
+    showTenWordModal.value = false
+    if (newIndex.value < newQueue.value.length - 1) {
+      newIndex.value += 1
+      phase.value = 'new'
+      return phase.value
+    }
+    const more = await loadLevelItems(new Set(countedNewWordIds.value))
+    if (more.length === 0) {
+      phase.value = 'result'
+      return phase.value
+    }
+    newQueue.value = more
+    newIndex.value = 0
+    phase.value = 'new'
+    return phase.value
+  }
+
+  /** 弹窗选 Finish for Today，或用户在 5~9 词时主动结束 */
+  function finishForToday(): LearningPhase {
+    showTenWordModal.value = false
+    pendingTenWordPrompt.value = false
     phase.value = 'result'
+    return phase.value
+  }
+
+  function goResult() {
+    finishForToday()
   }
 
   function reset() {
@@ -306,6 +371,9 @@ export const useLearningStore = defineStore('learning', () => {
     answer.value = ''
     feedback.value = null
     isRetryMode.value = false
+    countedNewWordIds.value = []
+    pendingTenWordPrompt.value = false
+    showTenWordModal.value = false
     stats.value = { newWords: 0, reviewed: 0, correct: 0, wrong: 0, newlyMastered: 0 }
   }
 
@@ -322,6 +390,9 @@ export const useLearningStore = defineStore('learning', () => {
     answer,
     feedback,
     isRetryMode,
+    countedNewWordIds,
+    pendingTenWordPrompt,
+    showTenWordModal,
     stats,
     current,
     newCurrent,
@@ -338,6 +409,8 @@ export const useLearningStore = defineStore('learning', () => {
     enterNewWords,
     learnCurrentWord,
     nextNewWord,
+    continueLearning,
+    finishForToday,
     goResult,
     reset,
   }

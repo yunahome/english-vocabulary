@@ -240,10 +240,11 @@ export class ProgressService {
         where: { stageId: current.stageId, isRequired: true },
         orderBy: { sortOrder: 'asc' },
       })
+      // PRD 5.4：每日新词没有固定上限，5 个只是最低要求。
+      // 全部未学必学词都生成任务，用户每 10 个词选择是否继续时才有词可学。
       senseIds = stageWords
         .map((item) => item.wordSenseId)
         .filter((id) => !learnedIds.has(id))
-        .slice(0, DAILY_MINIMUM_NEW_WORDS)
     }
     if (senseIds.length === 0) {
       const fallback = await this.prisma.wordSense.findMany({
