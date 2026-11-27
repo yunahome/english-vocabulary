@@ -66,6 +66,7 @@ english-vocabulary/
 │       │   ├── pdf-words.json        # 墨典小学英语 1532 词（清洗后）
 │       │   ├── import-pdf-words.ts   # PDF 词表导入（幂等）
 │       │   ├── import-enrichment.ts  # 完整资料 Excel/JSON 导入（幂等）
+│       │   ├── import-enrichment.ts  # 完整资料 Excel/JSON 导入（幂等）
 │       │   └── import-pdf-words.py   # PDF 提取文本 → JSON 的清洗脚本
 │       └── src/
 │           ├── main.ts               # 全局前缀、CORS、校验、拦截器、过滤器
@@ -261,6 +262,7 @@ pnpm test           # 后端单元测试（11 项）
 pnpm test:e2e       # 端到端功能测试（49 项，需后端已在 3000 端口运行）
 pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
 pnpm db:import-pdf  # 导入墨典 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
+pnpm prisma:import-enrichment  # 导入完整学习资料（英文释义/例句/翻译/记忆技巧）
 pnpm prisma:import-enrichment  # 导入完整学习资料（英文释义/例句/翻译/记忆技巧）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
 ```
