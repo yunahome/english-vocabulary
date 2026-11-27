@@ -68,6 +68,9 @@ export interface WordSenseDto {
   englishDefinition: string | null
   example: string | null
   exampleTranslation: string | null
+  mnemonic: string | null
+  usageNotes: string | null
+  sourceText: string | null
   sortOrder: number
 }
 

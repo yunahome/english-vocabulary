@@ -111,6 +111,9 @@ export class CatalogService {
     englishDefinition: string | null
     example: string | null
     exampleTranslation: string | null
+    mnemonic: string | null
+    usageNotes: string | null
+    sourceText: string | null
     sortOrder: number
   }): WordSenseDto {
     return {
@@ -121,6 +124,9 @@ export class CatalogService {
       englishDefinition: sense.englishDefinition,
       example: sense.example,
       exampleTranslation: sense.exampleTranslation,
+      mnemonic: sense.mnemonic,
+      usageNotes: sense.usageNotes,
+      sourceText: sense.sourceText,
       sortOrder: sense.sortOrder,
     }
   }

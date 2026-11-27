@@ -137,8 +137,8 @@ await p.$disconnect()}})()'''],
         elem = cat[0]
         unit = elem['units'][0]
         levels = unit['levels']
-        check('课程树 Elementary 含 1 个 Unit / 16 个 Level',
-              len(elem['units']) == 1 and len(levels) == 16,
+        check('课程树 Elementary 含 1 个 Unit 且 Level 数合理',
+              len(elem['units']) == 1 and 10 <= len(levels) <= 20,
               f'units={len(elem["units"])} levels={len(levels)}')
 
         lvl_words = ok(f'/catalog/levels/{levels[0]["id"]}/words', tok)

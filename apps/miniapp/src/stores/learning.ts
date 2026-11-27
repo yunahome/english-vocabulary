@@ -131,8 +131,22 @@ export const useLearningStore = defineStore('learning', () => {
       .filter((item): item is StudyItem => item !== null)
   }
 
-  /** 按课程顺序收集关卡词；excludeIds 用于「继续学习」时跳过已学过的词 */
-  /** 按词义 ID 从课程词表反查学习项（用于只加载今日未完成的任务词） */
+  /** Fisher-Yates 洗牌：只打乱当前批次内的呈现顺序，不改动数据库 sortOrder */
+  function shuffleBatch<T>(items: T[]): T[] {
+    const arr = [...items]
+    for (let i = arr.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[arr[i], arr[j]] = [arr[j], arr[i]]
+    }
+    return arr
+  }
+
+  /**
+   * 按词义 ID 从课程词表反查学习项。
+   * 新词批次在构建时打乱呈现顺序（PRD：背单词乱序）；
+   * 复习队列保持到期时间顺序，不打乱。
+   * ids 由后端按批次给出（10 词/批），因此洗牌不会跨批次。
+   */
   async function buildItemsByIds(
     ids: string[],
     isReview = false,
@@ -146,7 +160,7 @@ export const useLearningStore = defineStore('learning', () => {
     for (const word of words) {
       for (const sense of word.senses) lookup.set(sense.id, { sense, word })
     }
-    return ids
+    const items = ids
       .map((id) => {
         const found = lookup.get(id)
         if (!found) return null
@@ -169,6 +183,8 @@ export const useLearningStore = defineStore('learning', () => {
         } as StudyItem
       })
       .filter((item): item is StudyItem => item !== null)
+    // 新词批次内乱序；复习队列按到期时间顺序不动
+    return isReview ? items : shuffleBatch(items)
   }
 
   /** 今日尚未完成的「新词」任务 ID：后端已排除历史学过与今日已完成的词 */

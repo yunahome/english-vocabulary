@@ -5,7 +5,7 @@
 > 本地目录：`/Users/yktc/Documents/english-vocabulary`
 > Git 远程：`https://github.com/yunahome/english-vocabulary.git`（`main` 分支）
 
-当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 学习断点恢复已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重、学习断点恢复均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现。**课程词库共 1448 个必学词义**（100 个基础词 + 1532 个墨典 PDF 词，去重后），Elementary 阶段 1 个 Unit、16 个 Level，每关约 90 词。补掌握模式待完善，发音音频与云端部署属于后续阶段。
+当前状态：**工程骨架 + 核心学习闭环 MVP + 微信身份鉴权 + 学习断点恢复已完成**。数据库 17 张业务表、后端 REST 接口与业务规则、小程序 4 个 Tab + 4 个学习流程页均已打通。严格阶段解锁与 7 天间隔强校验已在服务端实现并有 11 项单测覆盖；每 10 个新词弹窗、每日新词无上限、新词计数去重、学习断点恢复均已跑通；新词队列只取当日未完成的任务词，今天已学并通过的词不会重复出现。PRD 第 14 章的 MVP 17 项已全部实现。**课程词库共 1079 个必学词义**（来自「小学英语词汇图解+联想记忆法」基准词表，经清洗整合），Elementary 阶段 1 个 Unit、11 个 Level，每关 100 词。补掌握模式待完善，发音音频与云端部署属于后续阶段。
 
 完整产品需求见根目录 `prd.md`（V1.2），UI 设计稿对应 `docs/UI-Specification.md`。
 
@@ -263,7 +263,9 @@ pnpm test:e2e       # 端到端功能测试（49 项，需后端已在 3000 端�
 pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
 pnpm db:import-pdf  # 导入墨典 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
 pnpm prisma:import-enrichment  # 导入完整学习资料（英文释义/例句/翻译/记忆技巧）
+pnpm prisma:import-final       # 全量导入最终 1079 词表（含 sortOrder 与用户记录迁移）
 pnpm prisma:import-enrichment  # 导入完整学习资料（英文释义/例句/翻译/记忆技巧）
+pnpm prisma:import-final       # 全量导入最终 1079 词表（含 sortOrder 与用户记录迁移）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器
 ```
 
@@ -273,13 +275,21 @@ H5 预览：`pnpm --filter @englis-vocabulary/miniapp dev:h5`（根 package.json
 
 后端 `.env` 采用**向上查找**方式定位（`app.module.ts` 的 `findEnvFiles()`），无论从仓库根、`apps/server` 还是其它目录启动都能读到同一份密钥，不会因启动目录不同而静默回退到开发默认密钥。
 
+**词表顺序 vs 学习乱序**：数据库按 Excel 行序存 `WordSense.sortOrder`（1–1079），课程与每日任务按该顺序取词；前端 `buildItemsByIds()` 仅对**当前批次内**做 Fisher-Yates 洗牌，打乱呈现顺序但不改数据库 sortOrder，断点恢复按已存队列原样还原。
+
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
+
+**词表顺序 vs 学习乱序**：数据库按 Excel 行序存 `WordSense.sortOrder`（1–1079），课程与每日任务按该顺序取词；前端 `buildItemsByIds()` 仅对**当前批次内**做 Fisher-Yates 洗牌，打乱呈现顺序但不改数据库 sortOrder，断点恢复按已存队列原样还原。
 
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
 
 后端 `.env` 采用**向上查找**方式定位（`app.module.ts` 的 `findEnvFiles()`），无论从仓库根、`apps/server` 还是其它目录启动都能读到同一份密钥，不会因启动目录不同而静默回退到开发默认密钥。
 
+**词表顺序 vs 学习乱序**：数据库按 Excel 行序存 `WordSense.sortOrder`（1–1079），课程与每日任务按该顺序取词；前端 `buildItemsByIds()` 仅对**当前批次内**做 Fisher-Yates 洗牌，打乱呈现顺序但不改数据库 sortOrder，断点恢复按已存队列原样还原。
+
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
+
+**词表顺序 vs 学习乱序**：数据库按 Excel 行序存 `WordSense.sortOrder`（1–1079），课程与每日任务按该顺序取词；前端 `buildItemsByIds()` 仅对**当前批次内**做 Fisher-Yates 洗牌，打乱呈现顺序但不改数据库 sortOrder，断点恢复按已存队列原样还原。
 
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
 
