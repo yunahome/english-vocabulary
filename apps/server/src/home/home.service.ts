@@ -49,17 +49,18 @@ export class HomeService {
       const totalWords = await this.prisma.stageWord.count({
         where: { stageId: current.stageId, isRequired: true },
       })
+      // 已学习词：UserWord 有记录即算（含 learning / mastered 等状态），
+      // 与顶部 Words Mastered（只算真正掌握）区分开。
       const learnedSenseIds = await this.prisma.userWord.findMany({
-        where: { userId, status: 'mastered' },
+        where: { userId },
         select: { wordSenseId: true },
       })
+      const learnedIdSet = new Set(learnedSenseIds.map((l) => l.wordSenseId))
       const stageSenseIds = await this.prisma.stageWord.findMany({
         where: { stageId: current.stageId, isRequired: true },
         select: { wordSenseId: true },
       })
-      const learnedWords = stageSenseIds.filter((s) =>
-        learnedSenseIds.some((l) => l.wordSenseId === s.wordSenseId),
-      ).length
+      const learnedWords = stageSenseIds.filter((s) => learnedIdSet.has(s.wordSenseId)).length
       const totalStages = await this.prisma.stage.count({ where: { isActive: true } })
       currentStage = {
         id: current.stageId,

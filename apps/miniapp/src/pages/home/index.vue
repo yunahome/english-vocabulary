@@ -97,7 +97,7 @@ async function startStudy() {
           <view class="stage-content">
             <view class="stage-row">
               <text class="stage-name">{{ summary.currentStage.name }}</text>
-              <text class="stage-count">{{ summary.currentStage.learnedWords }} / {{ summary.currentStage.totalWords }} words</text>
+              <text class="stage-count">{{ summary.currentStage.learnedWords }} / {{ summary.currentStage.totalWords }} learned</text>
             </view>
             <text class="stage-desc">Stage {{ summary.currentStage.stageNumber }} of {{ summary.currentStage.totalStages }}</text>
             <view class="progress">
