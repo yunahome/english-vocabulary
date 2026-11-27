@@ -1,0 +1,2 @@
+# 分批生成的中间文件，最终产物为 墨典小学英语-完整词汇资料.xlsx 与 enriched-all.json
+batch-*.json
