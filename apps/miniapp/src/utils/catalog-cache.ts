@@ -1,7 +1,8 @@
 import type { WordWithSensesDto } from '@englis-vocabulary/shared'
 import { getCatalogWords } from '@/api/catalog'
 
-const CATALOG_CACHE_KEY = 'ev_catalog_words_v1'
+// v2：词表已全量重建（1448 → 1079），升级 key 让旧缓存自然失效
+const CATALOG_CACHE_KEY = 'ev_catalog_words_v2'
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000
 
 interface CatalogCache {
@@ -50,4 +51,13 @@ export async function refreshCatalogWords(): Promise<WordWithSensesDto[]> {
   const words = await getCatalogWords()
   writeCache(words)
   return words
+}
+
+/** 退出登录时清理缓存，避免跨账号残留 */
+export function clearCatalogCache(): void {
+  try {
+    uni.removeStorageSync(CATALOG_CACHE_KEY)
+  } catch {
+    /* 忽略 */
+  }
 }

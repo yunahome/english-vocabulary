@@ -7,6 +7,8 @@ import {
   getAuthToken,
   setAuthToken,
 } from '@/utils/auth-storage'
+import { clearLocalSession } from '@/utils/learning-session'
+import { clearCatalogCache } from '@/utils/catalog-cache'
 
 function requestWechatCode(): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -69,6 +71,13 @@ export const useUserStore = defineStore('user', () => {
   }
 
   async function ensureUser(): Promise<string> {
+    // request.ts 在 401 时会清本地 token，但不会通知本 store。
+    // 若 token 已不在而 ready/userId 仍是旧值，会导致后续请求持续 401 且无法自愈。
+    if (!getAuthToken() && (ready.value || userId.value)) {
+      ready.value = false
+      userId.value = ''
+      user.value = null
+    }
     if (ready.value && userId.value) return userId.value
     if (pendingLogin) return pendingLogin
 
@@ -85,6 +94,9 @@ export const useUserStore = defineStore('user', () => {
 
   function logout() {
     clearAuthToken()
+    // 清理本地学习快照与词库缓存，避免切换账号串入上一用户的进度
+    clearLocalSession()
+    clearCatalogCache()
     userId.value = ''
     user.value = null
     ready.value = false

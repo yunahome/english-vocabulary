@@ -20,8 +20,6 @@ import {
   findActiveStage,
 } from './progress-helpers'
 
-const DAY_MS = 24 * 60 * 60 * 1000
-
 @Injectable()
 export class ProgressService {
   constructor(private readonly prisma: PrismaService) {}
@@ -214,6 +212,16 @@ export class ProgressService {
       },
       orderBy: { nextReviewAt: 'asc' },
     })
+    // 清理历史遗留的未完成 review 任务：DailyTask 唯一键含 learningDate，
+    // 同一个到期词若不清理会每天生成一条 pending 任务并永久堆积。
+    await this.prisma.dailyTask.deleteMany({
+      where: {
+        userId,
+        taskType: 'review',
+        taskStatus: 'pending',
+        learningDate: { lt: learningDate },
+      },
+    })
     for (const [index, due] of dueWords.entries()) {
       await this.prisma.dailyTask.upsert({
         where: {
@@ -384,10 +392,9 @@ export class ProgressService {
       where: { userId_learningDate: { userId, learningDate } },
     })
     if (learning) {
-      // 当日自然日的起止（UTC），用于按 masteredAt 精确统计当日新掌握数
-      const dayStart = parseDateKey(learningDate.toISOString().slice(0, 10))
-      const dayEnd = new Date(dayStart.getTime() + DAY_MS)
-      const [newWordCount, reviewWordCount, masteredCount] = await Promise.all([
+      // masteredCount 由 submitWriting 的 incrementTodayMastered 按用户时区维护，
+      // 这里不重算：UTC 日边界与用户时区日边界不一致，重算会把跨时区的掌握数覆盖掉。
+      const [newWordCount, reviewWordCount] = await Promise.all([
         this.prisma.dailyTask.count({
           where: {
             userId,
@@ -404,20 +411,12 @@ export class ProgressService {
             taskStatus: 'completed',
           },
         }),
-        this.prisma.userWord.count({
-          where: {
-            userId,
-            status: 'mastered',
-            masteredAt: { gte: dayStart, lt: dayEnd },
-          },
-        }),
       ])
       await this.prisma.dailyLearning.update({
         where: { id: learning.id },
         data: {
           newWordCount,
           reviewWordCount,
-          masteredCount,
           isDailyMinimumCompleted:
             newWordCount >= DAILY_MINIMUM_NEW_WORDS,
         },

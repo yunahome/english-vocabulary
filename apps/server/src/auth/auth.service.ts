@@ -7,7 +7,7 @@ import {
 import { ConfigService } from '@nestjs/config'
 import { PrismaService } from '../prisma.service'
 import { ProgressService } from '../progress/progress.service'
-import { resolveTimeZone } from '../common/date-time'
+import { isValidTimeZone, resolveTimeZone } from '../common/date-time'
 import type { AuthSessionDto, UserDto } from '@englis-vocabulary/shared'
 import { WechatLoginDto } from './dto/wechat-login.dto'
 import { signSessionToken, verifySessionToken } from './token'
@@ -34,6 +34,9 @@ export class AuthService {
       throw new UnauthorizedException('微信登录未返回 openid')
     }
 
+    // 仅在客户端传了合法时区时才写入；否则保留用户已有设置，
+    // 避免某次请求缺字段就把 America/New_York 静默重置成 Asia/Shanghai。
+    const hasValidTimezone = Boolean(dto.timezone && isValidTimeZone(dto.timezone))
     const timezone = resolveTimeZone(dto.timezone)
     const user = await this.prisma.user.upsert({
       where: { openid: session.openid },
@@ -42,7 +45,7 @@ export class AuthService {
         nickname: '学习者',
         timezone,
       },
-      update: { timezone },
+      update: hasValidTimezone ? { timezone } : {},
     })
     await this.progress.initUserStages(user.id)
 

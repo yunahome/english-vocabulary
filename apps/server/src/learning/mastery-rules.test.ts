@@ -106,3 +106,45 @@ test('mastered words are excluded from automatic mastery attempts', () => {
   assert.equal(decision.isValidMasteryAttempt, false)
   assert.equal(decision.status, 'mastered')
 })
+
+test('after forgetting (lastCorrectAt cleared) a correct answer restarts mastery counting', () => {
+  // 标记遗忘会清空 lastCorrectAt 并把 correctStreak 归零；
+  // 此时即使距上次正确不足 7 天，也应能重新开始累计（否则遗忘后 7 天内无法再掌握）。
+  const forgotten = learningSnapshot({
+    status: 'learning',
+    correctStreak: 0,
+    lastCorrectAt: null,
+    nextReviewAt: firstCorrectAt,
+  })
+  const decision = evaluateWritingAttempt({
+    isCorrect: true,
+    isIndependent: true,
+    attemptType: 'scheduled',
+    now: new Date(firstCorrectAt.getTime() + 60_000),
+    current: forgotten,
+  })
+  assert.equal(decision.isValidMasteryAttempt, true)
+  assert.equal(decision.correctStreak, 1)
+  assert.equal(decision.status, 'learning')
+})
+
+test('after forgetting (lastCorrectAt cleared) a correct answer restarts mastery counting', () => {
+  // 标记遗忘会清空 lastCorrectAt 并把 correctStreak 归零；
+  // 此时即使距上次正确不足 7 天，也应能重新开始累计（否则遗忘后 7 天内无法再掌握）。
+  const forgotten = learningSnapshot({
+    status: 'learning',
+    correctStreak: 0,
+    lastCorrectAt: null,
+    nextReviewAt: firstCorrectAt,
+  })
+  const decision = evaluateWritingAttempt({
+    isCorrect: true,
+    isIndependent: true,
+    attemptType: 'scheduled',
+    now: new Date(firstCorrectAt.getTime() + 60_000),
+    current: forgotten,
+  })
+  assert.equal(decision.isValidMasteryAttempt, true)
+  assert.equal(decision.correctStreak, 1)
+  assert.equal(decision.status, 'learning')
+})

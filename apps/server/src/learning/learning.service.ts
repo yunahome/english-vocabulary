@@ -166,6 +166,9 @@ export class LearningService {
       data: {
         status: 'learning',
         correctStreak: 0,
+        // 与「答错」分支一致：清空上次正确时间，否则 7 天间隔检查会短路，
+        // 导致标记遗忘后短期内即使答对也无法重新开始累计掌握次数。
+        lastCorrectAt: null,
         masteredAt: null,
         forgottenAt: new Date(),
         nextReviewAt: new Date(),

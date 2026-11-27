@@ -14,6 +14,8 @@ export interface LearningStats {
 
 /** PRD 7.2：学习断点快照。日期用用户时区自然日，跨日自动失效。 */
 export interface LearningSession {
+  /** 快照归属用户，避免同一设备切换账号时串入他人进度 */
+  userId?: string
   date: string
   phase: LearningPhase
   queue: StudyItem[]
@@ -23,6 +25,8 @@ export interface LearningSession {
   countedNewWordIds: string[]
   pendingTenWordPrompt: boolean
   showTenWordModal: boolean
+  /** 补掌握模式标记，恢复后复习页提示需保持 */
+  remediationMode?: boolean
   stats: LearningStats
   answer: string
   isRetryMode: boolean
@@ -73,8 +77,14 @@ export function pickNewerSession(
   }
 }
 
-/** 同一天、且处于可恢复的学习阶段 */
-export function isResumableSession(session: LearningSession | null, today: string): boolean {
+/** 同一天、归属当前用户、且处于可恢复的学习阶段 */
+export function isResumableSession(
+  session: LearningSession | null,
+  today: string,
+  userId?: string,
+): boolean {
   if (!session || session.date !== today) return false
+  // 老快照没有 userId（历史数据）：保守起见丢弃，避免串号
+  if (!session.userId || (userId && session.userId !== userId)) return false
   return session.phase === 'review' || session.phase === 'new' || session.phase === 'writing'
 }

@@ -209,6 +209,7 @@ export const useLearningStore = defineStore('learning', () => {
   function persistSession(status = 'in_progress') {
     if (!sessionDate.value || phase.value === 'idle' || phase.value === 'result') return
     const snapshot: LearningSession = {
+      userId: userId.value,
       date: sessionDate.value,
       phase: phase.value,
       queue: queue.value,
@@ -218,6 +219,7 @@ export const useLearningStore = defineStore('learning', () => {
       countedNewWordIds: countedNewWordIds.value,
       pendingTenWordPrompt: pendingTenWordPrompt.value,
       showTenWordModal: showTenWordModal.value,
+      remediationMode: remediationMode.value,
       stats: { ...stats.value },
       answer: answer.value,
       isRetryMode: isRetryMode.value,
@@ -236,7 +238,7 @@ export const useLearningStore = defineStore('learning', () => {
     userId.value = id
     await loadDailyTasks(id)
     const picked = pickNewerSession(loadLocalSession(), remoteSessionRaw.value)
-    if (!isResumableSession(picked, sessionDate.value)) return null
+    if (!isResumableSession(picked, sessionDate.value, id)) return null
     const session = picked as LearningSession
     if (
       !Array.isArray(session.queue) ||
@@ -255,6 +257,7 @@ export const useLearningStore = defineStore('learning', () => {
     countedNewWordIds.value = session.countedNewWordIds
     pendingTenWordPrompt.value = Boolean(session.pendingTenWordPrompt)
     showTenWordModal.value = Boolean(session.showTenWordModal)
+    remediationMode.value = Boolean(session.remediationMode)
     stats.value = {
       newWords: session.stats?.newWords ?? 0,
       reviewed: session.stats?.reviewed ?? 0,
@@ -297,6 +300,9 @@ export const useLearningStore = defineStore('learning', () => {
       // PRD 7.2：优先恢复当天的学习断点
       const resumed = await restoreSession(id)
       if (resumed) return resumed
+      // 断点不可恢复（无快照 / 跨日）：必须清零昨日残留的统计、计数与弹窗态，
+      // 否则今天学几个词就会用昨天的计数提前触发 10 词弹窗，总结数据也错。
+      reset(true)
       const dueItems = await buildDueItems(id)
       // PRD 6.1：没有到期复习时直接进入新词学习，不再拿关卡词重复练一遍
       if (dueItems.length === 0) return await enterNewWords()
@@ -522,7 +528,11 @@ export const useLearningStore = defineStore('learning', () => {
     finishForToday()
   }
 
-  function reset() {
+  /**
+   * 清空会话内状态。keepUserId=true 时保留当前用户（用于跨日开启新会话），
+   * 否则连 userId 一起清空。
+   */
+  function reset(keepUserId = false) {
     phase.value = 'idle'
     queue.value = []
     newQueue.value = []
@@ -534,7 +544,9 @@ export const useLearningStore = defineStore('learning', () => {
     countedNewWordIds.value = []
     pendingTenWordPrompt.value = false
     showTenWordModal.value = false
+    remediationMode.value = false
     stats.value = { newWords: 0, reviewed: 0, correct: 0, wrong: 0, newlyMastered: 0 }
+    if (!keepUserId) userId.value = ''
     clearSession()
   }
 
