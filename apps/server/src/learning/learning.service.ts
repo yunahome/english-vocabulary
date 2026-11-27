@@ -10,6 +10,7 @@ import {
 } from './mastery-rules'
 import {
   autoUnlockStageIfReady,
+  completeLevelsForSense,
   incrementTodayMastered,
 } from '../progress/progress-helpers'
 
@@ -130,7 +131,8 @@ export class LearningService {
         if (justMastered) {
           await incrementTodayMastered(tx, userId, now, user.timezone)
         }
-        // 每次提交后检查一次阶段解锁（幂等；覆盖词在其它途径被标记掌握的情形）
+        // 每次提交后检查关卡完成与阶段解锁（幂等）
+        await completeLevelsForSense(tx, userId, dto.wordSenseId, now)
         await autoUnlockStageIfReady(tx, userId, now)
 
         return {

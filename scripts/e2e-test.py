@@ -78,7 +78,7 @@ def main():
     check('健康检查返回 ok', st == 200 and b.get('data', {}).get('status') == 'ok', str(b))
 
     st, _ = req('/catalog/stages')
-    check('公开接口 /catalog/stages 免鉴权可访问', st == 200, f'status={st}')
+    check('/catalog/stages 无 token 返回 401（需鉴权）', st == 401, f'status={st}')
 
     st, _ = req('/home/summary')
     check('受保护接口 /home/summary 无 token 返回 401', st == 401, f'status={st}')
@@ -133,7 +133,7 @@ await p.$disconnect()}})()'''],
               len(user_stages or []) == 5 and len(unlocked) == 1, f'unlocked={len(unlocked)}')
 
         # ---------- 4. 课程与词库 ----------
-        cat = ok('/catalog/stages')
+        cat = ok('/catalog/stages', tok)
         elem = cat[0]
         unit = elem['units'][0]
         levels = unit['levels']
@@ -141,19 +141,21 @@ await p.$disconnect()}})()'''],
               len(elem['units']) == 1 and len(levels) == 16,
               f'units={len(elem["units"])} levels={len(levels)}')
 
-        lvl_words = ok(f'/catalog/levels/{levels[0]["id"]}/words')
+        lvl_words = ok(f'/catalog/levels/{levels[0]["id"]}/words', tok)
         check('关卡词接口返回该关全部单词', lvl_words is not None and len(lvl_words) > 0,
               f'len={len(lvl_words) if lvl_words else 0}')
 
-        stage_words = ok(f'/catalog/stages/{elem["id"]}/words')
+        stage_words = ok(f'/catalog/stages/{elem["id"]}/words', tok)
         check('阶段词接口返回阶段全部必学词',
               stage_words is not None and len(stage_words) > 0, f'len={len(stage_words) if stage_words else 0}')
 
-        all_words = ok('/catalog/words')
+        all_words = ok('/catalog/words', tok)
         check('全量词表接口可用', all_words is not None and len(all_words) > 0)
 
+        st, _ = req('/words', tok=tok)
+        check('GET /words 需鉴权时可访问', st == 200, f'status={st}')
         st, _ = req('/words')
-        check('公开接口 GET /words 可访问', st == 200, f'status={st}')
+        check('GET /words 无 token 返回 401', st == 401, f'status={st}')
 
         # ---------- 5. 每日任务 ----------
         tasks_res = ok('/progress/daily-tasks', tok)
@@ -169,7 +171,7 @@ await p.$disconnect()}})()'''],
         check('只拉取任务未实际学习时 streak 为 0', early_home is not None and early_home['dayStreak'] == 0,
               f"streak={early_home['dayStreak'] if early_home else None}")
         # 新词任务必须全部来自 Elementary 阶段的必学词，不能混入其它阶段
-        stage_ids = {s['id'] for s in (ok(f'/catalog/stages/{elem["id"]}/words') or [])}
+        stage_ids = {s['id'] for s in (ok(f'/catalog/stages/{elem["id"]}/words', tok) or [])}
         check('新词任务不跨阶段补词',
               all(t['wordSenseId'] in stage_ids for t in new_tasks),
               f'cross={[t["wordSenseId"] for t in new_tasks if t["wordSenseId"] not in stage_ids][:2]}')
@@ -177,7 +179,7 @@ await p.$disconnect()}})()'''],
         # ---------- 6. 掌握规则 ----------
         target = new_tasks[0]
         w = None
-        for cand in ok('/catalog/words') or []:
+        for cand in ok('/catalog/words', tok) or []:
             for s in cand['senses']:
                 if s['id'] == target['wordSenseId']:
                     w = {'id': s['id'], 'word': cand['word']}
@@ -259,6 +261,10 @@ await p.$disconnect()}})()'''],
               home is not None and home['newWordsLocked'] == (home['reviewDueCount'] > 0),
               f"locked={home['newWordsLocked']} due={home['reviewDueCount']}")
 
+        # ---------- 10.5 completeLevel 校验（须在全部掌握之前） ----------
+        st, _ = req(f'/progress/levels/{levels[-1]["id"]}/complete', {}, 'POST', tok)
+        check('completeLevel 未全部掌握时拒绝', st == 400, f'status={st}')
+
         # ---------- 11. 阶段解锁校验 ----------
         st, _ = req(f'/progress/stages/{elem["id"]}/unlock-next', {}, 'POST', tok)
         check('必学词未全部掌握时拒绝解锁下一阶段', st == 400, f'status={st}')
@@ -283,7 +289,7 @@ await p.$disconnect()}})()'''],
         # 用一个词触发自动解锁检查（submitWriting 路径）
         any_sense = stage_words[0]['id']
         any_word = None
-        for cand in (ok('/catalog/words') or []):
+        for cand in (ok('/catalog/words', tok) or []):
             for sn in cand['senses']:
                 if sn['id'] == any_sense:
                     any_word = cand['word']
@@ -309,7 +315,7 @@ await p.$disconnect()}})()'''],
         if free:
             sense_id = free[0]['wordSenseId']
             fw = None
-            for cand in (ok('/catalog/words') or []):
+            for cand in (ok('/catalog/words', tok) or []):
                 for sn in cand['senses']:
                     if sn['id'] == sense_id:
                         fw = cand['word']
@@ -335,6 +341,32 @@ await p.$disconnect()}})()'''],
         # ---------- 12. 用户关卡进度 ----------
         lv = ok('/progress/levels', tok)
         check('用户关卡进度接口可用', lv is not None)
+        # completeLevel 未掌握时拒绝
+        first_level = levels[0]['id']
+        # 把该关卡全部词标记掌握后，submitWriting 应自动完成关卡
+        node_result = subprocess.run(
+            ['node', '--env-file-if-exists=../../.env', '-e',
+             f'''const {{PrismaClient}}=require('@prisma/client');
+(async()=>{{const p=new PrismaClient();
+const lw=await p.levelWord.findMany({{where:{{levelId:'{first_level}'}},select:{{wordSenseId:true}}}});
+for(const w of lw) await p.userWord.upsert({{where:{{userId_wordSenseId:{{userId:'{uid}',wordSenseId:w.wordSenseId}}}},
+ create:{{userId:'{uid}',wordSenseId:w.wordSenseId,status:'mastered',masteredAt:new Date()}},
+ update:{{status:'mastered',masteredAt:new Date()}}}});
+console.log(lw.length);await p.$disconnect()}})()'''],
+            cwd=os.path.join(ROOT, 'apps', 'server'), capture_output=True, text=True)
+        auto_sense = next(iter(ok(f'/catalog/levels/{first_level}/words', tok) or []), None)
+        if auto_sense:
+            aw = None
+            for cand in (ok('/catalog/words', tok) or []):
+                for sn in cand['senses']:
+                    if sn['id'] == auto_sense['id']:
+                        aw = cand['word']
+            ok('/learning/writing', tok, {
+                'wordSenseId': auto_sense['id'], 'inputAnswer': aw,
+                'isIndependent': True, 'attemptType': 'scheduled'})
+            lv_after = ok('/progress/levels', tok) or []
+            done = [x for x in lv_after if x['levelId'] == first_level and x['status'] == 'completed']
+            check('关卡全部掌握后自动标记完成', len(done) > 0, f'levels={lv_after[:2]}')
 
         # ---------- 12.5 边界：7 天间隔强校验 ----------
         # 用一个未掌握的词：设置 lastCorrectAt 为 2 天前，再次提交应不计掌握次数
@@ -343,7 +375,7 @@ await p.$disconnect()}})()'''],
         if gap_words:
             gap_sense = gap_words[0]['wordSenseId']
             gap_word = None
-            for cand in (ok('/catalog/words') or []):
+            for cand in (ok('/catalog/words', tok) or []):
                 for sn in cand['senses']:
                     if sn['id'] == gap_sense:
                         gap_word = cand['word']
@@ -370,12 +402,12 @@ await p.$disconnect()}})()"""],
               st == 200 and b['data']['date'].startswith('2020-01-01'),
               f"status={st} date={b.get('data',{}).get('date') if st==200 else b}")
 
-        # ---------- 13. 新增单词 ----------
-        st, _ = req('/words', {'word': 'x', 'meaning': 'x'}, 'POST')
-        check('POST /words 无 token 返回 401（写操作需鉴权）', st == 401, f'status={st}')
+        # ---------- 13. 运行时写词接口已移除 ----------
         new_word = f'e2etest{int(time.time())}'
-        st, res = req('/words', {'word': new_word, 'meaning': '测试'}, 'POST', tok)
-        check('POST /words 带 token 新增单词成功', st in (200, 201), f'status={st} body={res}')
+        st, _ = req('/words', {'word': new_word, 'meaning': '测试'}, 'POST', tok)
+        check('POST /words 已移除（返回 404/405）', st in (404, 405), f'status={st}')
+        st, _ = req('/users')
+        check('/api/users 未挂载（返回 404）', st == 404, f'status={st}')
 
     finally:
         cleanup()

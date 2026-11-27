@@ -45,16 +45,16 @@ export class HomeService {
 
     let currentStage: HomeSummaryDto['currentStage'] = null
     if (current) {
+      // 只统计 isRequired=true 的必学词义，与阶段解锁口径一致
       const totalWords = await this.prisma.stageWord.count({
-        where: { stageId: current.stageId },
+        where: { stageId: current.stageId, isRequired: true },
       })
-      // 已掌握该阶段必学词义数
       const learnedSenseIds = await this.prisma.userWord.findMany({
         where: { userId, status: 'mastered' },
         select: { wordSenseId: true },
       })
       const stageSenseIds = await this.prisma.stageWord.findMany({
-        where: { stageId: current.stageId },
+        where: { stageId: current.stageId, isRequired: true },
         select: { wordSenseId: true },
       })
       const learnedWords = stageSenseIds.filter((s) =>

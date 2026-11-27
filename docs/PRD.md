@@ -70,6 +70,10 @@
 - 今日新掌握数：submitWriting 首次掌握时递增，completeDailyTask 按 masteredAt 重算。
 - 连续天数：只统计真正完成过新词/复习/掌握的日子。
 - 阶段解锁：必学词全部掌握后由 submitWriting 自动解锁下一阶段（幂等）。
+- 当前有效阶段：只取 unlocked 且配置了必学词的阶段，跳过空壳/锁定阶段。
+- 页面权限：`/catalog/*` 与 `/words` 改为需登录；移除运行时写单词接口；删除未挂载且有伪造风险的 users 模块。
+- 关卡完成：`completeLevel` 校验该关所有必学词义 mastered；掌握词后自动完成所属关卡并解锁下一关。
+- 首页进度：只统计 `isRequired=true` 的阶段必学词，与阶段解锁口径一致。
 
 ### 后续（未实现）
 

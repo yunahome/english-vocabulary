@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client'
+import { Prisma, PrismaClient } from '@prisma/client'
 import { dateKeyInTimeZone, parseDateKey, resolveTimeZone } from '../common/date-time'
 
 type TxClient = Prisma.TransactionClient
@@ -21,6 +21,101 @@ export async function incrementTodayMastered(
     create: { userId, learningDate, masteredCount: 1 },
     update: { masteredCount: { increment: 1 } },
   })
+}
+
+/**
+ * 掌握某词义后，检查它所属的全部关卡是否满足完成条件（一个词义可能出现在多个关卡）。
+ */
+export async function completeLevelsForSense(
+  tx: Prisma.TransactionClient | PrismaClient,
+  userId: string,
+  wordSenseId: string,
+  at: Date,
+): Promise<number> {
+  const links = await tx.levelWord.findMany({
+    where: { wordSenseId },
+    select: { levelId: true },
+  })
+  let done = 0
+  for (const link of links) {
+    if (await completeLevelIfReady(tx, userId, link.levelId, at)) done++
+  }
+  return done
+}
+
+/**
+ * 检查某关卡的必学词义是否全部掌握，是则标记完成并解锁同一 Unit 下一关（幂等）。
+ * 返回本次是否完成了关卡。
+ */
+export async function completeLevelIfReady(
+  tx: Prisma.TransactionClient | PrismaClient,
+  userId: string,
+  levelId: string,
+  at: Date,
+): Promise<boolean> {
+  const senseIds = (
+    await tx.levelWord.findMany({
+      where: { levelId },
+      select: { wordSenseId: true },
+    })
+  ).map((item) => item.wordSenseId)
+  if (senseIds.length === 0) return false
+
+  const masteredCount = await tx.userWord.count({
+    where: { userId, status: 'mastered', wordSenseId: { in: senseIds } },
+  })
+  if (masteredCount < senseIds.length) return false
+
+  const level = await tx.level.findUnique({ where: { id: levelId } })
+  if (!level) return false
+
+  const existing = await tx.userLevel.findUnique({
+    where: { userId_levelId: { userId, levelId } },
+  })
+  if (existing?.status === 'completed') return false
+
+  await tx.userLevel.upsert({
+    where: { userId_levelId: { userId, levelId } },
+    create: { userId, levelId, status: 'completed', completedAt: at },
+    update: { status: 'completed', completedAt: at },
+  })
+
+  const next = await tx.level.findFirst({
+    where: { unitId: level.unitId, sortOrder: { gt: level.sortOrder } },
+    orderBy: { sortOrder: 'asc' },
+  })
+  if (next) {
+    await tx.userLevel.upsert({
+      where: { userId_levelId: { userId, levelId: next.id } },
+      create: { userId, levelId: next.id, status: 'available' },
+      update: { status: 'available' },
+    })
+  }
+  return true
+}
+
+/**
+ * 取用户当前有效阶段：必须是 unlocked 且配置了必学词的阶段。
+ * 跳过 locked 阶段与没有必学词义的空壳阶段，避免补学/任务生成串到其它阶段。
+ */
+export async function findActiveStage(
+  tx: Prisma.TransactionClient | PrismaClient,
+  userId: string,
+): Promise<{ stageId: string; sortOrder: number } | null> {
+  const stages = await tx.userStage.findMany({
+    where: { userId, status: 'unlocked' },
+    include: { stage: true },
+    orderBy: { stage: { sortOrder: 'asc' } },
+  })
+  for (const item of stages) {
+    const requiredCount = await tx.stageWord.count({
+      where: { stageId: item.stageId, isRequired: true },
+    })
+    if (requiredCount > 0) {
+      return { stageId: item.stageId, sortOrder: item.stage.sortOrder }
+    }
+  }
+  return null
 }
 
 /**

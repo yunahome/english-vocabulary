@@ -14,7 +14,11 @@ import {
   DAILY_MINIMUM_NEW_WORDS,
   selectNextNewWordBatch,
 } from './progress-rules'
-import { autoUnlockStageIfReady } from './progress-helpers'
+import {
+  autoUnlockStageIfReady,
+  completeLevelIfReady,
+  findActiveStage,
+} from './progress-helpers'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -152,28 +156,36 @@ export class ProgressService {
     }))
   }
 
-  /** 标记关卡完成，并解锁同一 Unit 的下一关 */
+  /** 标记关卡完成：必须该关卡所有必学词义都已掌握，否则拒绝 */
   async completeLevel(userId: string, levelId: string): Promise<UserLevelDto> {
     const level = await this.prisma.level.findUnique({ where: { id: levelId } })
     if (!level) throw new NotFoundException('关卡不存在')
 
-    const done = await this.prisma.userLevel.upsert({
-      where: { userId_levelId: { userId, levelId } },
-      create: { userId, levelId, status: 'completed', completedAt: new Date() },
-      update: { status: 'completed', completedAt: new Date() },
+    const senseIds = (
+      await this.prisma.levelWord.findMany({
+        where: { levelId },
+        select: { wordSenseId: true },
+      })
+    ).map((item) => item.wordSenseId)
+    if (senseIds.length === 0) {
+      throw new BadRequestException('该关卡没有配置必学词，不能标记完成')
+    }
+    const masteredCount = await this.prisma.userWord.count({
+      where: { userId, status: 'mastered', wordSenseId: { in: senseIds } },
+    })
+    if (masteredCount < senseIds.length) {
+      throw new BadRequestException(
+        `该关卡还有 ${senseIds.length - masteredCount} 个必学词义未掌握，不能标记完成`,
+      )
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await completeLevelIfReady(tx, userId, levelId, new Date())
     })
 
-    const nextLevel = await this.prisma.level.findFirst({
-      where: { unitId: level.unitId, sortOrder: { gt: level.sortOrder } },
-      orderBy: { sortOrder: 'asc' },
+    const done = await this.prisma.userLevel.findUniqueOrThrow({
+      where: { userId_levelId: { userId, levelId } },
     })
-    if (nextLevel) {
-      await this.prisma.userLevel.upsert({
-        where: { userId_levelId: { userId, levelId: nextLevel.id } },
-        create: { userId, levelId: nextLevel.id, status: 'available' },
-        update: { status: 'available' },
-      })
-    }
     return {
       id: done.id,
       levelId: done.levelId,
@@ -189,11 +201,9 @@ export class ProgressService {
       dateStr ?? dateKeyInTimeZone(new Date(), user.timezone),
     )
 
-    // 当日汇总：upsert 保证幂等
-    const learning = await this.prisma.dailyLearning.upsert({
+    // 先读取当日汇总，不在这里创建空记录（避免只拉任务就让 streak 虚增）
+    let learning = await this.prisma.dailyLearning.findUnique({
       where: { userId_learningDate: { userId, learningDate } },
-      create: { userId, learningDate },
-      update: {},
     })
 
     const dueWords = await this.prisma.userWord.findMany({
@@ -226,12 +236,7 @@ export class ProgressService {
       })
     }
 
-    const userStages = await this.prisma.userStage.findMany({
-      where: { userId },
-      include: { stage: true },
-      orderBy: { stage: { sortOrder: 'asc' } },
-    })
-    const current = userStages.find((s) => s.status !== 'completed') ?? userStages[0]
+    const current = await findActiveStage(this.prisma, userId)
     const learned = await this.prisma.userWord.findMany({
       where: { userId },
       select: { wordSenseId: true },
@@ -258,6 +263,15 @@ export class ProgressService {
         pendingNewCount: todayNewTasks.filter(
           (item) => item.taskStatus !== 'completed',
         ).length,
+      })
+    }
+
+    // 只有确实生成了任务/到期复习时才创建当日汇总记录
+    if (senseIds.length > 0 || dueWords.length > 0) {
+      learning = await this.prisma.dailyLearning.upsert({
+        where: { userId_learningDate: { userId, learningDate } },
+        create: { userId, learningDate },
+        update: {},
       })
     }
 
@@ -291,14 +305,14 @@ export class ProgressService {
     return {
       date: learningDate.toISOString().slice(0, 10),
       learning: {
-        id: learning.id,
-        learningDate: learning.learningDate.toISOString().slice(0, 10),
-        newWordCount: learning.newWordCount,
-        reviewWordCount: learning.reviewWordCount,
-        masteredCount: learning.masteredCount,
-        isDailyMinimumCompleted: learning.isDailyMinimumCompleted,
-        sessionStatus: learning.sessionStatus,
-        lastLearningPosition: learning.lastLearningPosition,
+        id: learning?.id ?? '',
+        learningDate: learningDate.toISOString().slice(0, 10),
+        newWordCount: learning?.newWordCount ?? 0,
+        reviewWordCount: learning?.reviewWordCount ?? 0,
+        masteredCount: learning?.masteredCount ?? 0,
+        isDailyMinimumCompleted: learning?.isDailyMinimumCompleted ?? false,
+        sessionStatus: learning?.sessionStatus ?? 'not_started',
+        lastLearningPosition: learning?.lastLearningPosition ?? null,
       },
       tasks: tasks.map((task) => ({
         id: task.id,
