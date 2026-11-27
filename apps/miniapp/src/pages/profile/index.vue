@@ -20,7 +20,7 @@ onMounted(async () => {
     userIdShort.value = userId.slice(0, 8)
     const [home, words] = await Promise.all([getHomeSummary(), getUserWords()])
     summary.value = home
-    learnedCount.value = words.length
+    learnedCount.value = words.filter((w) => w.status !== 'mastered').length
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载资料失败'
   } finally {

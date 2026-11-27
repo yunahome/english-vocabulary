@@ -5,7 +5,7 @@ import type {
   WordWithSensesDto,
   WritingResultDto,
 } from '@englis-vocabulary/shared'
-import { getCatalogWords } from '@/api/catalog'
+import { getCatalogWordsCached } from '@/utils/catalog-cache'
 import { getDueReviews, submitWriting } from '@/api/learning'
 import { completeDailyTask, getDailyTasks, saveLearningSession } from '@/api/progress'
 import {
@@ -70,6 +70,8 @@ export const useLearningStore = defineStore('learning', () => {
   /** 完成第 10/20/30... 个新词后，等用户点 Continue 时弹出询问 */
   const pendingTenWordPrompt = ref(false)
   const showTenWordModal = ref(false)
+  /** PRD 3.3：当前阶段新词学完但仍有未掌握词时进入补掌握模式 */
+  const remediationMode = ref(false)
   const stats = ref({
     newWords: 0,
     reviewed: 0,
@@ -95,7 +97,7 @@ export const useLearningStore = defineStore('learning', () => {
 
   /** 把 wordSenseId 反查成可展示的词义（后端只给了 ID，用课程词表 join） */
   async function buildDueItems(id: string): Promise<StudyItem[]> {
-    const [due, words] = await Promise.all([getDueReviews(), getCatalogWords()])
+    const [due, words] = await Promise.all([getDueReviews(), getCatalogWordsCached()])
     if (due.length === 0) return []
     const lookup = new Map<
       string,
@@ -131,9 +133,12 @@ export const useLearningStore = defineStore('learning', () => {
 
   /** 按课程顺序收集关卡词；excludeIds 用于「继续学习」时跳过已学过的词 */
   /** 按词义 ID 从课程词表反查学习项（用于只加载今日未完成的任务词） */
-  async function buildItemsByIds(ids: string[]): Promise<StudyItem[]> {
+  async function buildItemsByIds(
+    ids: string[],
+    isReview = false,
+  ): Promise<StudyItem[]> {
     if (ids.length === 0) return []
-    const words = await getCatalogWords()
+    const words = await getCatalogWordsCached()
     const lookup = new Map<
       string,
       { sense: WordWithSensesDto['senses'][number]; word: WordWithSensesDto }
@@ -160,7 +165,7 @@ export const useLearningStore = defineStore('learning', () => {
           heroImage: resolveWordHeroImage(word.word, word.imageUrl),
           correctStreak: 0,
           status: 'not_started',
-          isReview: false,
+          isReview,
         } as StudyItem
       })
       .filter((item): item is StudyItem => item !== null)
@@ -345,16 +350,13 @@ export const useLearningStore = defineStore('learning', () => {
   /** 完成当前词对应的每日任务（新词任务） */
   async function completeMatchingTask(item: StudyItem) {
     const taskType = item.isReview ? 'review' : 'new'
-    const task =
-      dailyTasks.value.find(
-        (t) =>
-          t.wordSenseId === item.wordSenseId &&
-          t.taskType === taskType &&
-          t.taskStatus !== 'completed',
-      ) ??
-      dailyTasks.value.find(
-        (t) => t.taskType === taskType && t.taskStatus !== 'completed',
-      )
+    // 只完成当前词对应的任务；找不到就不动其它任务，避免错误回退完成别人的任务
+    const task = dailyTasks.value.find(
+      (t) =>
+        t.wordSenseId === item.wordSenseId &&
+        t.taskType === taskType &&
+        t.taskStatus !== 'completed',
+    )
     if (!task) return
     try {
       const result = await completeDailyTask(task.id)
@@ -394,7 +396,27 @@ export const useLearningStore = defineStore('learning', () => {
       const items = await buildItemsByIds(pendingNewWordIds())
       newQueue.value = items
       newIndex.value = 0
-      phase.value = items.length > 0 ? 'new' : 'result'
+      if (items.length > 0) {
+        remediationMode.value = false
+        phase.value = 'new'
+      } else {
+        // 没有新词：检查是否有未完成的复习任务，有则进入补掌握模式
+        const pendingReview = dailyTasks.value.filter(
+          (t) => t.taskType === 'review' && t.taskStatus !== 'completed',
+        )
+        if (pendingReview.length > 0) {
+          remediationMode.value = true
+          phase.value = 'review'
+          queue.value = await buildItemsByIds(
+            pendingReview.map((t) => t.wordSenseId),
+            true,
+          )
+          index.value = 0
+        } else {
+          remediationMode.value = false
+          phase.value = 'result'
+        }
+      }
       persistSession()
       return phase.value
     } catch (err) {
@@ -458,7 +480,10 @@ export const useLearningStore = defineStore('learning', () => {
     )
     const more = await buildItemsByIds(ids)
     if (more.length === 0) {
+      // PRD 7.2：空路径也要落盘（标记已完成），否则重启后又弹一次询问
       phase.value = 'result'
+      pendingTenWordPrompt.value = false
+      clearSession()
       return phase.value
     }
     newQueue.value = more
@@ -513,6 +538,7 @@ export const useLearningStore = defineStore('learning', () => {
     countedNewWordIds,
     pendingTenWordPrompt,
     showTenWordModal,
+    remediationMode,
     stats,
     current,
     newCurrent,

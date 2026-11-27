@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import type { LevelLearningItemDto, UserWordDto } from '@englis-vocabulary/shared'
-import { getLevelWords, getStages } from '@/api/catalog'
+import type { UserWordDto, WordWithSensesDto } from '@englis-vocabulary/shared'
+import { getCatalogWordsCached } from '@/utils/catalog-cache'
 import { getUserWords, markForgotten } from '@/api/learning'
 import { useUserStore } from '@/stores/user'
 import { getNavMetrics, isLocalImage, resolveWordImage } from '@/utils/nav'
@@ -61,12 +61,16 @@ function formatDate(iso: string | null): string {
 }
 
 function decorate(
-  levelItems: LevelLearningItemDto[],
+  catalog: WordWithSensesDto[],
   userWords: UserWordDto[],
 ): VocabItem[] {
   const bySense = new Map(userWords.map((w) => [w.wordSenseId, w]))
   const now = Date.now()
-  return levelItems.map((item) => {
+  // 展开每个单词的全部词义，覆盖全量词库（不再只取首单元首关卡）
+  const senses = catalog.flatMap((word) =>
+    word.senses.map((sense) => ({ sense, word })),
+  )
+  return senses.map(({ sense: item, word }) => {
     const record = bySense.get(item.id)
     const due = !!record && (
       (record.nextReviewAt !== null && new Date(record.nextReviewAt).getTime() <= now) ||
@@ -91,12 +95,12 @@ function decorate(
     }
     return {
       wordSenseId: item.id,
-      word: item.word,
-      phonetic: item.phonetic,
+      word: word.word,
+      phonetic: word.phonetic,
       definition: item.definition,
-      example: item.example,
+      example: item.example ?? null,
       partOfSpeech: item.partOfSpeech,
-      image: resolveWordImage(item.word, item.imageUrl),
+      image: resolveWordImage(word.word, word.imageUrl),
       status,
       correctStreak: record?.correctStreak ?? 0,
       nextReviewAt: record?.nextReviewAt ?? null,
@@ -114,17 +118,11 @@ async function load() {
   try {
     const id = await userStore.ensureUser()
     userId.value = id
-    const stages = await getStages()
-    const level = stages[0]?.units?.[0]?.levels?.[0]
-    if (!level) {
-      items.value = []
-      return
-    }
-    const [levelItems, userWords] = await Promise.all([
-      getLevelWords(level.id),
+    const [catalog, userWords] = await Promise.all([
+      getCatalogWordsCached(),
       getUserWords(),
     ])
-    items.value = decorate(levelItems, userWords)
+    items.value = decorate(catalog, userWords)
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载词库失败'
   } finally {

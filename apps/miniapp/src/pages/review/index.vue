@@ -84,6 +84,9 @@ function close() {
         </view>
         <view class="bar"><view class="bar-fill" :style="{ width: barPercent + '%' }" /></view>
         <text class="remaining">{{ remaining }} words remaining</text>
+        <text v-if="learning.remediationMode" class="remediation-note">
+          Catch-up mode: all new words learned, working on words not yet mastered.
+        </text>
       </view>
 
       <view class="question-divider" />
@@ -261,6 +264,14 @@ function close() {
   color: #75847a;
   font-size: 23rpx;
   line-height: 1.2;
+  text-align: center;
+}
+.remediation-note {
+  display: block;
+  margin-top: 10rpx;
+  color: #b07a1f;
+  font-size: 21rpx;
+  line-height: 1.35;
   text-align: center;
 }
 .question-divider {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
 import type { HomeSummaryDto, StageDto, UserStageDto } from '@englis-vocabulary/shared'
 import { getHomeSummary } from '@/api/home'
 import { getStages } from '@/api/catalog'
@@ -43,7 +44,7 @@ const stageRows = computed(() =>
 )
 
 
-onMounted(async () => {
+onShow(async () => {
   try {
     const userId = await userStore.ensureUser()
     const [stageList, uStages, home, words] = await Promise.all([
@@ -55,7 +56,7 @@ onMounted(async () => {
     stages.value = stageList
     userStages.value = uStages
     summary.value = home
-    learnedCount.value = words.length
+    learnedCount.value = words.filter((w) => w.status !== 'mastered').length
   } catch (err) {
     error.value = err instanceof Error ? err.message : '加载进度失败'
   } finally {
