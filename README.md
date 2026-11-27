@@ -255,9 +255,9 @@ pnpm db:generate    # 重新生成 Prisma Client
 pnpm db:migrate     # 开发期迁移并生成 migration
 pnpm db:deploy      # 应用现有 migration（生产环境，非交互式）
 pnpm test           # 后端单元测试（11 项）
-pnpm test:e2e       # 端到端功能测试（38 项，需后端已在 3000 端口运行）
+pnpm test:e2e       # 端到端功能测试（46 项，需后端已在 3000 端口运行）
 pnpm test           # 后端单元测试（11 项）
-pnpm test:e2e       # 端到端功能测试（38 项，需后端已在 3000 端口运行）
+pnpm test:e2e       # 端到端功能测试（46 项，需后端已在 3000 端口运行）
 pnpm db:seed        # 写入 5 阶段 + 100 基础词（幂等）
 pnpm db:import-pdf  # 导入墨典 1532 词（幂等，追加到 Unit 1 的 Level 2~16）
 pnpm db:up / db:down  # 启动 / 停止 PostgreSQL 容器

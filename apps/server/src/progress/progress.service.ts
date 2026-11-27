@@ -10,9 +10,13 @@ import type {
   UserLevelDto,
   UserStageDto,
 } from '@englis-vocabulary/shared'
+import {
+  DAILY_MINIMUM_NEW_WORDS,
+  selectNextNewWordBatch,
+} from './progress-rules'
+import { autoUnlockStageIfReady } from './progress-helpers'
 
-/** 每日最低新词任务数（来自 step1.md：每天最低 5 个新词） */
-const DAILY_MINIMUM_NEW_WORDS = 5
+const DAY_MS = 24 * 60 * 60 * 1000
 
 @Injectable()
 export class ProgressService {
@@ -240,19 +244,21 @@ export class ProgressService {
         where: { stageId: current.stageId, isRequired: true },
         orderBy: { sortOrder: 'asc' },
       })
-      // PRD 5.4：每日新词没有固定上限，5 个只是最低要求。
-      // 全部未学必学词都生成任务，用户每 10 个词选择是否继续时才有词可学。
-      senseIds = stageWords
-        .map((item) => item.wordSenseId)
-        .filter((id) => !learnedIds.has(id))
-    }
-    if (senseIds.length === 0) {
-      const fallback = await this.prisma.wordSense.findMany({
-        where: { id: { notIn: Array.from(learnedIds) } },
-        orderBy: { sortOrder: 'asc' },
-        take: DAILY_MINIMUM_NEW_WORDS,
+      // PRD 3.3 补掌握模式：当前阶段新词全部学完后不再生成新词任务，
+      // 只安排未掌握词的复习（上方 dueWords 已覆盖）。绝不从其它阶段补词。
+      // PRD 5.4：每日新词无固定上限，但按批生成避免一次写上千条 DailyTask。
+      const todayNewTasks = await this.prisma.dailyTask.findMany({
+        where: { userId, learningDate, taskType: 'new' },
+        select: { wordSenseId: true, taskStatus: true },
       })
-      senseIds = fallback.map((item) => item.id)
+      senseIds = selectNextNewWordBatch({
+        stageSenseIdsInOrder: stageWords.map((item) => item.wordSenseId),
+        learnedSenseIds: learnedIds,
+        existingNewSenseIds: new Set(todayNewTasks.map((item) => item.wordSenseId)),
+        pendingNewCount: todayNewTasks.filter(
+          (item) => item.taskStatus !== 'completed',
+        ).length,
+      })
     }
 
     for (const [index, wordSenseId] of senseIds.entries()) {
@@ -364,7 +370,10 @@ export class ProgressService {
       where: { userId_learningDate: { userId, learningDate } },
     })
     if (learning) {
-      const [newWordCount, reviewWordCount] = await Promise.all([
+      // 当日自然日的起止（UTC），用于按 masteredAt 精确统计当日新掌握数
+      const dayStart = parseDateKey(learningDate.toISOString().slice(0, 10))
+      const dayEnd = new Date(dayStart.getTime() + DAY_MS)
+      const [newWordCount, reviewWordCount, masteredCount] = await Promise.all([
         this.prisma.dailyTask.count({
           where: {
             userId,
@@ -381,16 +390,33 @@ export class ProgressService {
             taskStatus: 'completed',
           },
         }),
+        this.prisma.userWord.count({
+          where: {
+            userId,
+            status: 'mastered',
+            masteredAt: { gte: dayStart, lt: dayEnd },
+          },
+        }),
       ])
       await this.prisma.dailyLearning.update({
         where: { id: learning.id },
         data: {
           newWordCount,
           reviewWordCount,
+          masteredCount,
           isDailyMinimumCompleted:
             newWordCount >= DAILY_MINIMUM_NEW_WORDS,
         },
       })
+    }
+
+    // 兜底：若阶段必学词已全部掌握，自动解锁（正常路径在 submitWriting 已处理）
+    try {
+      await this.prisma.$transaction(async (tx) => {
+        await autoUnlockStageIfReady(tx, userId, new Date())
+      })
+    } catch {
+      // 自动解锁失败不影响任务完成主流程
     }
 
     // 重新读取最新状态

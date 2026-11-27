@@ -7,6 +7,7 @@ import {
   parseDateKey,
   resolveTimeZone,
 } from '../common/date-time'
+import { countsTowardStreak } from '../progress/progress-rules'
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -119,12 +120,21 @@ export class HomeService {
   private async calculateStreak(userId: string, today: Date): Promise<number> {
     const records = await this.prisma.dailyLearning.findMany({
       where: { userId },
-      select: { learningDate: true },
+      select: {
+        learningDate: true,
+        newWordCount: true,
+        reviewWordCount: true,
+        masteredCount: true,
+      },
       orderBy: { learningDate: 'desc' },
     })
-    if (records.length === 0) return 0
-
-    const dates = new Set(records.map((r) => r.learningDate.getTime()))
+    // 只有真正完成过学习（新词/复习/新掌握）的日子才算连续天数
+    const dates = new Set(
+      records
+        .filter((r) => countsTowardStreak(r))
+        .map((r) => r.learningDate.getTime()),
+    )
+    if (dates.size === 0) return 0
     let cursor = today.getTime()
 
     // 今天没学习则从昨天开始算（连续天数还没断）

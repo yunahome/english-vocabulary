@@ -8,6 +8,10 @@ import {
   evaluateWritingAttempt,
   type MasterySnapshot,
 } from './mastery-rules'
+import {
+  autoUnlockStageIfReady,
+  incrementTodayMastered,
+} from '../progress/progress-helpers'
 
 @Injectable()
 export class LearningService {
@@ -42,7 +46,7 @@ export class LearningService {
 
         const user = await tx.user.findUnique({
           where: { id: userId },
-          select: { id: true },
+          select: { id: true, timezone: true },
         })
         if (!user) throw new NotFoundException('用户不存在')
 
@@ -117,6 +121,17 @@ export class LearningService {
             ...(decision.clearForgotten ? { forgottenAt: null } : {}),
           },
         })
+
+        // 首次达到掌握标准：当日掌握数 +1，并检查是否可自动解锁下一阶段
+        const justMastered =
+          decision.status === 'mastered' &&
+          decision.isValidMasteryAttempt &&
+          current?.status !== 'mastered'
+        if (justMastered) {
+          await incrementTodayMastered(tx, userId, now, user.timezone)
+        }
+        // 每次提交后检查一次阶段解锁（幂等；覆盖词在其它途径被标记掌握的情形）
+        await autoUnlockStageIfReady(tx, userId, now)
 
         return {
           recordId: record.id,

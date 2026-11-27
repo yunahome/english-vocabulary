@@ -162,6 +162,17 @@ await p.$disconnect()}})()'''],
         check('每日任务生成 new 任务', len(new_tasks) > 0, f'new={len(new_tasks)}')
         check('每日任务 learning 汇总含今日字段',
               all(k in tasks_res['learning'] for k in ('newWordCount', 'reviewWordCount', 'isDailyMinimumCompleted')))
+        check('新词任务按批生成（不超过 10 个，避免一次写上千行）',
+              len(new_tasks) <= 10, f'new={len(new_tasks)}')
+        # 此时用户只拉取过任务、尚未完成任何学习，streak 应为 0
+        early_home = ok('/home/summary', tok)
+        check('只拉取任务未实际学习时 streak 为 0', early_home is not None and early_home['dayStreak'] == 0,
+              f"streak={early_home['dayStreak'] if early_home else None}")
+        # 新词任务必须全部来自 Elementary 阶段的必学词，不能混入其它阶段
+        stage_ids = {s['id'] for s in (ok(f'/catalog/stages/{elem["id"]}/words') or [])}
+        check('新词任务不跨阶段补词',
+              all(t['wordSenseId'] in stage_ids for t in new_tasks),
+              f'cross={[t["wordSenseId"] for t in new_tasks if t["wordSenseId"] not in stage_ids][:2]}')
 
         # ---------- 6. 掌握规则 ----------
         target = new_tasks[0]
@@ -252,26 +263,106 @@ await p.$disconnect()}})()'''],
         st, _ = req(f'/progress/stages/{elem["id"]}/unlock-next', {}, 'POST', tok)
         check('必学词未全部掌握时拒绝解锁下一阶段', st == 400, f'status={st}')
 
+        # 全部必学词标记为 mastered 后，submitWriting 应自动解锁下一阶段
+        r = subprocess.run(
+            ['node', '--env-file-if-exists=../../.env', '-e',
+             f'''const {{PrismaClient}}=require('@prisma/client');
+(async()=>{{const p=new PrismaClient();
+const sw=await p.stageWord.findMany({{where:{{stageId:'{elem["id"]}',isRequired:true}},select:{{wordSenseId:true}}}});
+for(const w of sw){{
+ await p.userWord.upsert({{where:{{userId_wordSenseId:{{userId:'{uid}',wordSenseId:w.wordSenseId}}}},
+  create:{{userId:'{uid}',wordSenseId:w.wordSenseId,status:'mastered',masteredAt:new Date()}},
+  update:{{status:'mastered',masteredAt:new Date()}}}});
+}}
+await p.$disconnect()}})()'''],
+            cwd=os.path.join(ROOT, 'apps', 'server'), capture_output=True, text=True)
+        check('标记全部必学词为掌握成功',
+              'error' not in (r.stderr or '').lower(),
+              f'stderr={r.stderr[:200]}')
+        # 确认数据库中掌握数确实等于必学数
+        # 用一个词触发自动解锁检查（submitWriting 路径）
+        any_sense = stage_words[0]['id']
+        any_word = None
+        for cand in (ok('/catalog/words') or []):
+            for sn in cand['senses']:
+                if sn['id'] == any_sense:
+                    any_word = cand['word']
+        unlock_res = ok('/learning/writing', tok, {
+            'wordSenseId': any_sense, 'inputAnswer': any_word,
+            'isIndependent': True, 'attemptType': 'scheduled'})
+        stages_after = ok('/progress/stages', tok) or []
+        elementary_after = next((x for x in stages_after if x['stageId'] == elem['id']), None)
+        junior_after = next((x for x in stages_after if x['stageId'] != elem['id'] and x['status'] == 'unlocked'), None)
+        check('全部必学词掌握后自动解锁下一阶段',
+              elementary_after is not None and elementary_after['status'] == 'completed'
+              and junior_after is not None,
+              f'elementary={elementary_after["status"] if elementary_after else None} junior={junior_after is not None}')
+
+        # ---------- 11.5 今日新掌握数 ----------
+        # 通过完成一个每日任务触发 masteredCount 重算（此用户尚无掌握词，应为 0）
+        mastered_before = home['todayMastered']
+        check('今日新掌握数初始为 0', mastered_before == 0, f'mastered={mastered_before}')
+        # 直接用 submitWriting 连续三次有效正确掌握一个词（间隔用库调整），
+        # 验证 submitWriting 路径会递增当日 masteredCount
+        fresh = ok('/progress/daily-tasks', tok)
+        free = [t for t in fresh['tasks'] if t['taskType'] == 'new']
+        if free:
+            sense_id = free[0]['wordSenseId']
+            fw = None
+            for cand in (ok('/catalog/words') or []):
+                for sn in cand['senses']:
+                    if sn['id'] == sense_id:
+                        fw = cand['word']
+            # 构造历史：已 1 次正确且 lastCorrectAt 在 8 天前，满足间隔
+            subprocess.run(
+                ['node', '--env-file-if-exists=../../.env', '-e',
+                 f'''const {{PrismaClient}}=require('@prisma/client');
+(async()=>{{const p=new PrismaClient();
+const t=new Date(Date.now()-8*86400000);
+await p.userWord.upsert({{where:{{userId_wordSenseId:{{userId:'{uid}',wordSenseId:'{sense_id}'}}}},
+ create:{{userId:'{uid}',wordSenseId:'{sense_id}',status:'learning',correctStreak:2,lastCorrectAt:t}},
+ update:{{status:'learning',correctStreak:2,lastCorrectAt:t}}}});
+await p.$disconnect()}})()'''],
+                cwd=os.path.join(ROOT, 'apps', 'server'), capture_output=True, text=True)
+            result = ok('/learning/writing', tok, {
+                'wordSenseId': sense_id, 'inputAnswer': fw,
+                'isIndependent': True, 'attemptType': 'scheduled'})
+            check('提交后词义达到掌握', result is not None and result.get('mastered') is True, str(result))
+            home2 = ok('/home/summary', tok)
+            check('今日新掌握数在掌握词后更新', home2 is not None and home2['todayMastered'] >= 1,
+                  f"mastered={home2['todayMastered'] if home2 else None}")
+
         # ---------- 12. 用户关卡进度 ----------
         lv = ok('/progress/levels', tok)
         check('用户关卡进度接口可用', lv is not None)
 
         # ---------- 12.5 边界：7 天间隔强校验 ----------
-        # 把 lastCorrectAt 改成 2 天前，再次提交应因间隔不足 7 天不计数
-        subprocess.run(
-            ['node', '--env-file-if-exists=../../.env', '-e',
-             f"""const {{PrismaClient}}=require('@prisma/client');
+        # 用一个未掌握的词：设置 lastCorrectAt 为 2 天前，再次提交应不计掌握次数
+        gap_words = [t for t in (ok('/progress/daily-tasks', tok) or {}).get('tasks', [])
+                     if t['taskType'] == 'new']
+        if gap_words:
+            gap_sense = gap_words[0]['wordSenseId']
+            gap_word = None
+            for cand in (ok('/catalog/words') or []):
+                for sn in cand['senses']:
+                    if sn['id'] == gap_sense:
+                        gap_word = cand['word']
+            subprocess.run(
+                ['node', '--env-file-if-exists=../../.env', '-e',
+                 f"""const {{PrismaClient}}=require('@prisma/client');
 (async()=>{{const p=new PrismaClient();
-const uw=await p.userWord.findFirst({{where:{{userId:'{uid}',wordSenseId:'{target['wordSenseId']}'}}}});
-if(uw) await p.userWord.update({{where:{{id:uw.id}},data:{{lastCorrectAt:new Date(Date.now()-2*86400000)}}}});
+const t=new Date(Date.now()-2*86400000);
+await p.userWord.upsert({{where:{{userId_wordSenseId:{{userId:'{uid}',wordSenseId:'{gap_sense}'}}}},
+ create:{{userId:'{uid}',wordSenseId:'{gap_sense}',status:'learning',correctStreak:0,lastCorrectAt:t}},
+ update:{{status:'learning',correctStreak:0,lastCorrectAt:t}}}});
 await p.$disconnect()}})()"""],
-            cwd=os.path.join(ROOT, 'apps', 'server'), capture_output=True, text=True)
-        gap = ok('/learning/writing', tok, {
-            'wordSenseId': target['wordSenseId'], 'inputAnswer': w['word'],
-            'isIndependent': True, 'attemptType': 'scheduled'})
-        check('相邻有效正确间隔不足 7 天不计数',
-              gap is not None and gap.get('isValidMasteryAttempt') is False
-              and gap.get('correctStreak') == 0, str(gap))
+                cwd=os.path.join(ROOT, 'apps', 'server'), capture_output=True, text=True)
+            gap = ok('/learning/writing', tok, {
+                'wordSenseId': gap_sense, 'inputAnswer': gap_word,
+                'isIndependent': True, 'attemptType': 'scheduled'})
+            check('相邻有效正确间隔不足 7 天不计数',
+                  gap is not None and gap.get('isValidMasteryAttempt') is False
+                  and gap.get('correctStreak') == 0, str(gap))
 
         # ---------- 12.6 边界：跨天查询 ----------
         st, b = req('/progress/daily-tasks?date=2020-01-01', tok=tok)
