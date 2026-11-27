@@ -15,7 +15,6 @@
     "prisma:import-pdf": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/import-pdf-words.ts",
     "prisma:restructure": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/restructure-to-one-unit.ts",
     "prisma:import-enrichment": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/import-enrichment.ts",
-    "prisma:import-final": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/import-final-wordlist.ts",
     "prisma:import-final": "node --env-file-if-exists=../../.env ./node_modules/tsx/dist/cli.mjs prisma/import-final-wordlist.ts"
   },
   "dependencies": {
