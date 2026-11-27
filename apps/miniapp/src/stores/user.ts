@@ -40,16 +40,18 @@ export const useUserStore = defineStore('user', () => {
   const userId = ref('')
   const user = ref<UserDto | null>(null)
   const ready = ref(false)
+  const loginError = ref('')
+  /** 并发调用共享同一次登录，避免 onLaunch 与页面 onShow/onMounted 重复触发 wx.login */
+  let pendingLogin: Promise<string> | null = null
 
-  async function ensureUser() {
-    if (ready.value && userId.value) return userId.value
-
+  async function doLogin(): Promise<string> {
     const cachedToken = getAuthToken()
     if (cachedToken) {
       try {
         user.value = await getCurrentUser()
         userId.value = user.value.id
         ready.value = true
+        loginError.value = ''
         return userId.value
       } catch {
         clearAuthToken()
@@ -62,7 +64,23 @@ export const useUserStore = defineStore('user', () => {
     user.value = session.user
     userId.value = session.user.id
     ready.value = true
+    loginError.value = ''
     return userId.value
+  }
+
+  async function ensureUser(): Promise<string> {
+    if (ready.value && userId.value) return userId.value
+    if (pendingLogin) return pendingLogin
+
+    pendingLogin = doLogin()
+      .catch((err: unknown) => {
+        loginError.value = err instanceof Error ? err.message : '登录失败'
+        throw err
+      })
+      .finally(() => {
+        pendingLogin = null
+      })
+    return pendingLogin
   }
 
   function logout() {
@@ -70,7 +88,9 @@ export const useUserStore = defineStore('user', () => {
     userId.value = ''
     user.value = null
     ready.value = false
+    loginError.value = ''
+    pendingLogin = null
   }
 
-  return { userId, user, ready, ensureUser, logout }
+  return { userId, user, ready, loginError, ensureUser, logout }
 })
