@@ -271,7 +271,11 @@ H5 预览：`pnpm --filter @englis-vocabulary/miniapp dev:h5`（根 package.json
 
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
 
+**登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
+
 后端 `.env` 采用**向上查找**方式定位（`app.module.ts` 的 `findEnvFiles()`），无论从仓库根、`apps/server` 还是其它目录启动都能读到同一份密钥，不会因启动目录不同而静默回退到开发默认密钥。
+
+**登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
 
 **登录时机**：小程序 `App.vue` 的 `onLaunch` 统一调用 `userStore.ensureUser()` 触发登录（本地有 token 则校验 `/auth/me`，否则 `wx.login` + `/auth/wechat/login`）。各页面仍会调用 `ensureUser()`，但 store 用 in-flight Promise 合并并发请求，不会重复登录。
 
